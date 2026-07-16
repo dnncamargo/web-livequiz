@@ -9,8 +9,8 @@ export function HomePage() {
         <h1>Prepare-se para jogar!</h1>
 
         <p>
-          Quando uma partida estiver aberta, você poderá escolher seu nickname
-          e seu avatar nesta página.
+          Quando uma partida estiver aberta, você poderá escolher seu nickname e
+          seu avatar nesta página.
         </p>
 
         <nav className="navigation">

@@ -7,9 +7,7 @@ export function PresentationPage() {
         <span className="eyebrow">Apresentação</span>
         <h1>Nenhum quiz em andamento</h1>
 
-        <p>
-          Esta será a tela projetada para a turma durante as partidas.
-        </p>
+        <p>Esta será a tela projetada para a turma durante as partidas.</p>
 
         <Link to="/">Voltar</Link>
       </section>
