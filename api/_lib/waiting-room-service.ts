@@ -4,9 +4,9 @@ import {
   WAITING_ROOM_CODE_LENGTH,
   publicWaitingRoomSchema,
   type PublicWaitingRoom,
-} from "../../src/shared/waiting-room";
-import type { FirebaseAdminServices } from "./firebase-admin";
-import { HttpError } from "./http-error";
+} from "../../src/shared/waiting-room.js";
+import type { FirebaseAdminServices } from "./firebase-admin.js";
+import { HttpError } from "./http-error.js";
 
 const MAX_CODE_GENERATION_ATTEMPTS = 8;
 

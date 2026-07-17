@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { FirebaseAdminConfigurationError } from "./_lib/firebase-admin";
-import { POST } from "./diagnostics";
+import { FirebaseAdminConfigurationError } from "./_lib/firebase-admin.js";
+import { POST } from "./diagnostics.js";
 
 const diagnosticMocks = vi.hoisted(() => ({
   authorizeAdministratorRequest: vi.fn(),
@@ -15,13 +15,13 @@ const diagnosticMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("./_lib/administrator-authorization", () => ({
+vi.mock("./_lib/administrator-authorization.js", () => ({
   authorizeAdministratorRequest: diagnosticMocks.authorizeAdministratorRequest,
 }));
 
-vi.mock("./_lib/firebase-admin", async (importOriginal) => {
+vi.mock("./_lib/firebase-admin.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("./_lib/firebase-admin")>();
+    await importOriginal<typeof import("./_lib/firebase-admin.js")>();
 
   return {
     ...original,

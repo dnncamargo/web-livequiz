@@ -1,3 +1,7 @@
+import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
+import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
+import { createWaitingRoom } from "./_lib/waiting-room-service.js";
+
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
   return Response.json(body, {
     status,
@@ -38,22 +42,12 @@ export function GET(): Response {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const [authorizationModule, firebaseModule, waitingRoomModule] =
-      await Promise.all([
-        import("./_lib/administrator-authorization"),
-        import("./_lib/firebase-admin"),
-        import("./_lib/waiting-room-service"),
-      ]);
-    const services = firebaseModule.getFirebaseAdminServices();
-    const administrator =
-      await authorizationModule.authorizeAdministratorRequest(
-        request,
-        services,
-      );
-    const room = await waitingRoomModule.createWaitingRoom(
-      administrator.uid,
+    const services = getFirebaseAdminServices();
+    const administrator = await authorizeAdministratorRequest(
+      request,
       services,
     );
+    const room = await createWaitingRoom(administrator.uid, services);
 
     return jsonResponse({ room }, 201);
   } catch (error) {

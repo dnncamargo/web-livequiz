@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FirebaseAdminServices } from "./firebase-admin";
+import type { FirebaseAdminServices } from "./firebase-admin.js";
 import {
   createWaitingRoom,
   generateWaitingRoomCode,
-} from "./waiting-room-service";
+} from "./waiting-room-service.js";
 
 function createServices(): FirebaseAdminServices {
   return {

@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { get, ref } from "firebase/database";
+import { onValue, ref, type Unsubscribe } from "firebase/database";
 import { checkAdministratorAuthorization } from "../auth/administrator-auth";
 import { realtimeDatabase } from "../../lib/firebase";
 import {
@@ -26,6 +26,50 @@ const AUTHORIZATION_REASON_MESSAGES = {
   "inactive-profile": "O perfil administrativo está inativo.",
   "email-mismatch": "O e-mail do perfil não corresponde à conta Google.",
 } as const;
+
+const REALTIME_DATABASE_CONNECTION_TIMEOUT_MS = 10_000;
+
+async function waitForRealtimeDatabaseConnection(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let unsubscribe: Unsubscribe | null = null;
+    let completed = false;
+
+    const complete = (callback: () => void) => {
+      if (completed) {
+        return;
+      }
+
+      completed = true;
+      globalThis.clearTimeout(timeout);
+      unsubscribe?.();
+      callback();
+    };
+
+    const timeout = globalThis.setTimeout(() => {
+      complete(() => {
+        reject(new Error("Tempo esgotado ao conectar ao Realtime Database."));
+      });
+    }, REALTIME_DATABASE_CONNECTION_TIMEOUT_MS);
+
+    unsubscribe = onValue(
+      ref(realtimeDatabase, ".info/connected"),
+      (snapshot) => {
+        if (snapshot.val() === true) {
+          complete(resolve);
+        }
+      },
+      (error) => {
+        complete(() => {
+          reject(error);
+        });
+      },
+    );
+
+    if (completed) {
+      unsubscribe();
+    }
+  });
+}
 
 function skippedServerChecks(message: string): ConnectionDiagnosticCheck[] {
   return [
@@ -167,20 +211,13 @@ export async function runConnectionDiagnostics(
   }
 
   try {
-    const snapshot = await get(ref(realtimeDatabase, ".info/serverTimeOffset"));
-    const serverTimeOffset = snapshot.val();
+    await waitForRealtimeDatabaseConnection();
 
     checks.push({
       id: "realtime-database-client",
       label: "RTDB pelo navegador",
-      status: typeof serverTimeOffset === "number" ? "success" : "warning",
-      message:
-        typeof serverTimeOffset === "number"
-          ? "O navegador recebeu informações do Realtime Database."
-          : "O RTDB respondeu, mas não informou o deslocamento de horário.",
-      ...(typeof serverTimeOffset !== "number" && {
-        recommendation: "Repita o teste e confira VITE_FIREBASE_DATABASE_URL.",
-      }),
+      status: "success",
+      message: "O navegador estabeleceu conexão com o Realtime Database.",
     });
   } catch (error) {
     console.error("Falha do RTDB no diagnóstico do navegador:", error);
@@ -190,7 +227,7 @@ export async function runConnectionDiagnostics(
       status: "error",
       message: "O navegador não conseguiu consultar o Realtime Database.",
       recommendation:
-        "Confira VITE_FIREBASE_DATABASE_URL, as regras e a conexão de rede.",
+        "Confira VITE_FIREBASE_DATABASE_URL e bloqueios de rede, proxy ou extensões do navegador.",
     });
   }
 

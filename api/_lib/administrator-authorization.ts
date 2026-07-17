@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { FirebaseAdminServices } from "./firebase-admin";
-import { HttpError } from "./http-error";
+import type { FirebaseAdminServices } from "./firebase-admin.js";
+import { HttpError } from "./http-error.js";
 
 const administratorTokenSchema = z.object({
   uid: z.string().min(1),

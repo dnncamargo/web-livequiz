@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpError } from "./_lib/http-error";
-import { GET, POST } from "./games";
+import { HttpError } from "./_lib/http-error.js";
+import { GET, POST } from "./games.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
@@ -8,15 +8,15 @@ const apiMocks = vi.hoisted(() => ({
   createWaitingRoom: vi.fn(),
 }));
 
-vi.mock("./_lib/firebase-admin", () => ({
+vi.mock("./_lib/firebase-admin.js", () => ({
   getFirebaseAdminServices: () => apiMocks.services,
 }));
 
-vi.mock("./_lib/administrator-authorization", () => ({
+vi.mock("./_lib/administrator-authorization.js", () => ({
   authorizeAdministratorRequest: apiMocks.authorizeAdministratorRequest,
 }));
 
-vi.mock("./_lib/waiting-room-service", () => ({
+vi.mock("./_lib/waiting-room-service.js", () => ({
   createWaitingRoom: apiMocks.createWaitingRoom,
 }));
 

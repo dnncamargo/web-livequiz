@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FirebaseAdminServices } from "./firebase-admin";
-import { authorizeAdministratorRequest } from "./administrator-authorization";
+import type { FirebaseAdminServices } from "./firebase-admin.js";
+import { authorizeAdministratorRequest } from "./administrator-authorization.js";
 
 const validToken = {
   uid: "administrador-1",

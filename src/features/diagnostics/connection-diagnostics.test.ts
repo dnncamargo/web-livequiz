@@ -3,7 +3,7 @@ import { runConnectionDiagnostics } from "./connection-diagnostics";
 
 const diagnosticClientMocks = vi.hoisted(() => ({
   checkAdministratorAuthorization: vi.fn(),
-  get: vi.fn(),
+  onValue: vi.fn(),
   ref: vi.fn(),
   realtimeDatabase: { name: "realtime-database" },
 }));
@@ -14,7 +14,7 @@ vi.mock("../auth/administrator-auth", () => ({
 }));
 
 vi.mock("firebase/database", () => ({
-  get: diagnosticClientMocks.get,
+  onValue: diagnosticClientMocks.onValue,
   ref: diagnosticClientMocks.ref,
 }));
 
@@ -46,9 +46,19 @@ describe("diagnóstico de conexão", () => {
       .mockReset()
       .mockResolvedValue({ authorized: true });
     diagnosticClientMocks.ref.mockReset().mockReturnValue({
-      path: ".info/serverTimeOffset",
+      path: ".info/connected",
     });
-    diagnosticClientMocks.get.mockReset().mockResolvedValue({ val: () => 10 });
+    diagnosticClientMocks.onValue
+      .mockReset()
+      .mockImplementation(
+        (
+          _reference: unknown,
+          onData: (snapshot: { val: () => boolean }) => void,
+        ) => {
+          queueMicrotask(() => onData({ val: () => true }));
+          return vi.fn();
+        },
+      );
   });
 
   it("combina testes do navegador e do servidor sem criar uma sala", async () => {
@@ -104,6 +114,10 @@ describe("diagnóstico de conexão", () => {
     expect(fetchMock).not.toHaveBeenCalledWith(
       "/api/games",
       expect.objectContaining({ method: "POST" }),
+    );
+    expect(diagnosticClientMocks.ref).toHaveBeenCalledWith(
+      diagnosticClientMocks.realtimeDatabase,
+      ".info/connected",
     );
   });
 });

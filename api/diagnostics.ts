@@ -1,7 +1,9 @@
 import type {
   ConnectionDiagnosticCheck,
   ConnectionDiagnosticResponse,
-} from "../src/shared/connection-diagnostics";
+} from "../src/shared/connection-diagnostics.js";
+import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
+import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 
 const FIREBASE_ADMIN_ERROR_CODES = new Set([
   "firebase-admin-environment-invalid",
@@ -86,49 +88,10 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  let authorizationModule: typeof import("./_lib/administrator-authorization");
-  let firebaseModule: typeof import("./_lib/firebase-admin");
+  let services: ReturnType<typeof getFirebaseAdminServices>;
 
   try {
-    [authorizationModule, firebaseModule] = await Promise.all([
-      import("./_lib/administrator-authorization"),
-      import("./_lib/firebase-admin"),
-    ]);
-  } catch (error) {
-    console.error("Falha ao carregar módulos do diagnóstico:", error);
-
-    return jsonResponse(
-      {
-        checkedAt,
-        checks: [
-          {
-            id: "firebase-admin",
-            label: "Firebase Admin",
-            status: "error",
-            message:
-              "A função não conseguiu carregar os módulos administrativos.",
-            recommendation: "Consulte os logs da função na Vercel.",
-          },
-          skippedCheck(
-            "server-authorization",
-            "Autorização no servidor",
-            "Não testado porque os módulos não foram carregados.",
-          ),
-          skippedCheck(
-            "realtime-database-server",
-            "RTDB pelo servidor",
-            "Não testado porque os módulos não foram carregados.",
-          ),
-        ],
-      },
-      500,
-    );
-  }
-
-  let services: ReturnType<typeof firebaseModule.getFirebaseAdminServices>;
-
-  try {
-    services = firebaseModule.getFirebaseAdminServices();
+    services = getFirebaseAdminServices();
   } catch (error) {
     console.error("Falha na configuração do Firebase Admin:", error);
     const errorCode = getErrorCode(error);
@@ -180,7 +143,7 @@ export async function POST(request: Request): Promise<Response> {
   ];
 
   try {
-    await authorizationModule.authorizeAdministratorRequest(request, services);
+    await authorizeAdministratorRequest(request, services);
     checks.push({
       id: "server-authorization",
       label: "Autorização no servidor",
