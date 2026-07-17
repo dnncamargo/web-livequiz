@@ -23,7 +23,11 @@ implementados:
 - restauração da participação após atualização da página e ativação da
   presença somente depois do registro seguro na sala;
 - bloqueio de nicknames duplicados e publicação apenas da contagem de
-  participantes no estado público.
+  participantes no estado público;
+- recuperação da sala de espera ativa ao retornar ao gerenciamento;
+- lista privada de participantes atualizada no painel administrativo;
+- link de entrada que identifica e preenche automaticamente o código da sala
+  para o participante.
 
 A escolha de avatar e a moderação da entrada serão implementadas nos próximos
 marcos definidos em `AGENTS.md`. As funcionalidades de quizzes e partida
@@ -91,6 +95,16 @@ projeção pública.
 O navegador guarda somente o código da sala ativa. Ao atualizar a página, o
 registro é consultado novamente no servidor pelo UID anônimo; nickname, status
 de moderação e pontuação não podem ser alterados diretamente pelo cliente.
+
+A consulta `GET /api/games` é exclusiva para administradores autorizados. Sem
+um código, ela recupera a sala de espera ativa pertencente ao administrador;
+com `gameId`, retorna a sala e sua lista privada de participantes. Essa lista
+não é copiada para `publicGames`.
+
+O link `/?sala=CODIGO` confirma publicamente a sala ativa e preenche o código
+de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
+uma janela anônima, outro perfil ou outro dispositivo para testar o participante
+sem encerrar a sessão administrativa.
 
 ## Diagnóstico de conexões
 

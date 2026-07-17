@@ -1,6 +1,9 @@
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
-import { createWaitingRoom } from "./_lib/waiting-room-service.js";
+import {
+  createWaitingRoom,
+  getManagedWaitingRoom,
+} from "./_lib/waiting-room-service.js";
 
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
   return Response.json(body, {
@@ -27,17 +30,24 @@ function isHttpError(error: unknown): error is HttpErrorLike {
   );
 }
 
-export function GET(): Response {
-  return jsonResponse(
-    {
-      error: {
-        code: "method-not-allowed",
-        message: "Utilize POST para criar uma sala.",
-      },
-    },
-    405,
-    { allow: "POST" },
-  );
+export async function GET(request: Request): Promise<Response> {
+  try {
+    const services = getFirebaseAdminServices();
+    const administrator = await authorizeAdministratorRequest(
+      request,
+      services,
+    );
+    const gameId = new URL(request.url).searchParams.get("gameId") ?? undefined;
+    const waitingRoom = await getManagedWaitingRoom(
+      administrator.uid,
+      services,
+      gameId,
+    );
+
+    return jsonResponse(waitingRoom, 200);
+  } catch (error) {
+    return handleError(error, "consultar");
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -51,23 +61,27 @@ export async function POST(request: Request): Promise<Response> {
 
     return jsonResponse({ room }, 201);
   } catch (error) {
-    if (isHttpError(error)) {
-      return jsonResponse(
-        { error: { code: error.code, message: error.message } },
-        error.status,
-      );
-    }
+    return handleError(error, "criar");
+  }
+}
 
-    console.error("Erro interno ao criar sala de espera:", error);
-
+function handleError(error: unknown, operation: "consultar" | "criar") {
+  if (isHttpError(error)) {
     return jsonResponse(
-      {
-        error: {
-          code: "internal-error",
-          message: "Não foi possível criar a sala. Tente novamente.",
-        },
-      },
-      500,
+      { error: { code: error.code, message: error.message } },
+      error.status,
     );
   }
+
+  console.error(`Erro interno ao ${operation} sala de espera:`, error);
+
+  return jsonResponse(
+    {
+      error: {
+        code: "internal-error",
+        message: `Não foi possível ${operation} a sala. Tente novamente.`,
+      },
+    },
+    500,
+  );
 }

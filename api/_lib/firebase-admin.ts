@@ -26,6 +26,10 @@ export interface FirebaseAdminServices {
     publicRoom: Record<string, unknown>,
   ) => Promise<void>;
   removeWaitingRoom: (gameId: string) => Promise<void>;
+  getWaitingRoom: (gameId: string) => Promise<unknown | null>;
+  findActiveWaitingRoom: (
+    ownerId: string,
+  ) => Promise<{ gameId: string; room: unknown } | null>;
   registerParticipant: (
     gameId: string,
     participantId: string,
@@ -188,6 +192,41 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         [`liveGames/${gameId}`]: null,
         [`publicGames/${gameId}`]: null,
       });
+    },
+    getWaitingRoom: async (gameId) => {
+      const snapshot = await database.ref(`liveGames/${gameId}`).get();
+
+      return snapshot.exists() ? snapshot.val() : null;
+    },
+    findActiveWaitingRoom: async (ownerId) => {
+      const snapshot = await database.ref("liveGames").get();
+      const rooms: unknown = snapshot.val();
+
+      if (!isRecord(rooms)) {
+        return null;
+      }
+
+      const activeRoom = Object.entries(rooms)
+        .filter(
+          ([, room]) =>
+            isRecord(room) &&
+            room.ownerId === ownerId &&
+            room.phase === "waiting",
+        )
+        .sort(([, firstRoom], [, secondRoom]) => {
+          const firstCreatedAt =
+            isRecord(firstRoom) && typeof firstRoom.createdAt === "number"
+              ? firstRoom.createdAt
+              : 0;
+          const secondCreatedAt =
+            isRecord(secondRoom) && typeof secondRoom.createdAt === "number"
+              ? secondRoom.createdAt
+              : 0;
+
+          return secondCreatedAt - firstCreatedAt;
+        })[0];
+
+      return activeRoom ? { gameId: activeRoom[0], room: activeRoom[1] } : null;
     },
     registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
       let outcome: ParticipantRegistrationOutcome = "room-not-found";

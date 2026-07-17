@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { getAuthErrorMessage } from "../features/auth/auth-errors";
+import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import {
   createWaitingRoom,
   WaitingRoomRequestError,
@@ -12,6 +13,11 @@ export function ManagementPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const {
+    waitingRoom: activeWaitingRoom,
+    loading: loadingActiveWaitingRoom,
+    error: activeWaitingRoomError,
+  } = useManagedWaitingRoom(user);
 
   async function handleCreateWaitingRoom() {
     if (!user) {
@@ -64,16 +70,46 @@ export function ManagementPage() {
         <p>Sessão administrativa autenticada.</p>
 
         <div className="management-actions">
-          <button
-            type="button"
-            className="primary-button"
-            disabled={submitting}
-            onClick={handleCreateWaitingRoom}
-          >
-            {submitting ? "Criando sala..." : "Criar sala de espera"}
-          </button>
-          <span>Gera um código seguro para a próxima partida.</span>
+          {loadingActiveWaitingRoom && (
+            <span role="status">Procurando uma sala de espera ativa...</span>
+          )}
+
+          {!loadingActiveWaitingRoom && activeWaitingRoom && (
+            <>
+              <Link
+                className="primary-button"
+                to={`/gerenciar/sala/${activeWaitingRoom.room.id}`}
+              >
+                Retomar sala {activeWaitingRoom.room.id}
+              </Link>
+              <span>
+                A sala continua ativa com{" "}
+                {activeWaitingRoom.room.participantCount} participante(s).
+              </span>
+            </>
+          )}
+
+          {!loadingActiveWaitingRoom && !activeWaitingRoom && (
+            <>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={submitting}
+                onClick={handleCreateWaitingRoom}
+              >
+                {submitting ? "Criando sala..." : "Criar sala de espera"}
+              </button>
+              <span>Gera um código seguro para a próxima partida.</span>
+            </>
+          )}
         </div>
+
+        {activeWaitingRoomError && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Não foi possível recuperar a sala ativa</strong>
+            <p>{activeWaitingRoomError}</p>
+          </div>
+        )}
 
         <div className="auth-diagnostic">
           <span>Administrador</span>

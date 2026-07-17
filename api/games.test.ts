@@ -6,6 +6,7 @@ const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
   authorizeAdministratorRequest: vi.fn(),
   createWaitingRoom: vi.fn(),
+  getManagedWaitingRoom: vi.fn(),
 }));
 
 vi.mock("./_lib/firebase-admin.js", () => ({
@@ -18,18 +19,25 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 
 vi.mock("./_lib/waiting-room-service.js", () => ({
   createWaitingRoom: apiMocks.createWaitingRoom,
+  getManagedWaitingRoom: apiMocks.getManagedWaitingRoom,
 }));
 
-describe("POST /api/games", () => {
+const room = {
+  id: "ABC234",
+  phase: "waiting",
+  createdAt: 1_000,
+  participantCount: 0,
+} as const;
+
+describe("/api/games", () => {
   beforeEach(() => {
     apiMocks.authorizeAdministratorRequest
       .mockReset()
       .mockResolvedValue({ uid: "administrador-1" });
-    apiMocks.createWaitingRoom.mockReset().mockResolvedValue({
-      id: "ABC234",
-      phase: "waiting",
-      createdAt: 1_000,
-      participantCount: 0,
+    apiMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
+    apiMocks.getManagedWaitingRoom.mockReset().mockResolvedValue({
+      room,
+      participants: [],
     });
   });
 
@@ -41,25 +49,38 @@ describe("POST /api/games", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toEqual({
-      room: {
-        id: "ABC234",
-        phase: "waiting",
-        createdAt: 1_000,
-        participantCount: 0,
-      },
-    });
+    await expect(response.json()).resolves.toEqual({ room });
     expect(apiMocks.createWaitingRoom).toHaveBeenCalledWith(
       "administrador-1",
       apiMocks.services,
     );
   });
 
-  it("rejeita outros métodos", async () => {
-    const response = GET();
+  it("recupera uma sala específica e seus participantes", async () => {
+    const response = await GET(
+      new Request("https://quizumba.example/api/games?gameId=ABC234"),
+    );
 
-    expect(response.status).toBe(405);
-    expect(response.headers.get("allow")).toBe("POST");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      room,
+      participants: [],
+    });
+    expect(apiMocks.getManagedWaitingRoom).toHaveBeenCalledWith(
+      "administrador-1",
+      apiMocks.services,
+      "ABC234",
+    );
+  });
+
+  it("procura a sala ativa do administrador quando não há código", async () => {
+    await GET(new Request("https://quizumba.example/api/games"));
+
+    expect(apiMocks.getManagedWaitingRoom).toHaveBeenCalledWith(
+      "administrador-1",
+      apiMocks.services,
+      undefined,
+    );
   });
 
   it("não cria sala quando a autorização falha", async () => {

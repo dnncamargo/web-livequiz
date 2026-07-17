@@ -21,6 +21,10 @@ export function usePublicWaitingRoom(gameId: string): PublicWaitingRoomState {
   });
 
   useEffect(() => {
+    if (!gameId) {
+      return;
+    }
+
     let active = true;
 
     try {
@@ -65,6 +69,10 @@ export function usePublicWaitingRoom(gameId: string): PublicWaitingRoomState {
       };
     }
   }, [gameId]);
+
+  if (!gameId) {
+    return { room: null, loading: false, error: null };
+  }
 
   if (state.gameId !== gameId) {
     return { room: null, loading: true, error: null };

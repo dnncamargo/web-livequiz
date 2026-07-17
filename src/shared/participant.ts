@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { waitingRoomCodeSchema } from "./waiting-room.js";
+import {
+  publicWaitingRoomSchema,
+  waitingRoomCodeSchema,
+} from "./waiting-room.js";
 
 export const PARTICIPANT_NICKNAME_MIN_LENGTH = 2;
 export const PARTICIPANT_NICKNAME_MAX_LENGTH = 20;
@@ -56,6 +59,23 @@ export const participantSessionResponseSchema = z
   .object({ participant: participantSessionSchema })
   .strict();
 
+export const managedWaitingRoomParticipantSchema = z
+  .object({
+    participantId: z.string().min(1),
+    nickname: normalizedNicknameSchema,
+    moderationStatus: participantModerationStatusSchema,
+    joinedAt: z.number().int().nonnegative(),
+    presenceStatus: z.enum(["connected", "disconnected"]),
+  })
+  .strict();
+
+export const managedWaitingRoomResponseSchema = z
+  .object({
+    room: publicWaitingRoomSchema,
+    participants: z.array(managedWaitingRoomParticipantSchema),
+  })
+  .strict();
+
 export type JoinParticipantRequest = z.infer<
   typeof joinParticipantRequestSchema
 >;
@@ -63,3 +83,9 @@ export type ParticipantModerationStatus = z.infer<
   typeof participantModerationStatusSchema
 >;
 export type ParticipantSession = z.infer<typeof participantSessionSchema>;
+export type ManagedWaitingRoom = z.infer<
+  typeof managedWaitingRoomResponseSchema
+>;
+export type ManagedWaitingRoomParticipant = z.infer<
+  typeof managedWaitingRoomParticipantSchema
+>;

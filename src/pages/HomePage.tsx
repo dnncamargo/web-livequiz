@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { getAuthErrorMessage } from "../features/auth/auth-errors";
+import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
 import { ParticipantJoinPanel } from "../features/participants/ParticipantJoinPanel";
+import { participantGameCodeSchema } from "../shared/participant";
 
 export function HomePage() {
+  const [searchParams] = useSearchParams();
   const {
     user,
     loading,
@@ -17,6 +20,10 @@ export function HomePage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const requestedGameId = searchParams.get("sala") ?? "";
+  const gameIdResult = participantGameCodeSchema.safeParse(requestedGameId);
+  const linkedGameId = gameIdResult.success ? gameIdResult.data : "";
+  const linkedRoomState = usePublicWaitingRoom(linkedGameId);
 
   async function handleParticipantLogin() {
     setSubmitting(true);
@@ -72,6 +79,41 @@ export function HomePage() {
 
         <h1>Prepare-se para jogar!</h1>
 
+        {linkedGameId && linkedRoomState.loading && (
+          <div className="linked-room-notice" role="status">
+            <span>Localizando sala</span>
+            <strong>{linkedGameId}</strong>
+          </div>
+        )}
+
+        {linkedRoomState.room && (
+          <div
+            className="linked-room-notice"
+            aria-label="Sala ativa identificada"
+          >
+            <span>Sala de espera ativa</span>
+            <strong>{linkedRoomState.room.id}</strong>
+            <small>
+              Aguardando · {linkedRoomState.room.participantCount}{" "}
+              participante(s)
+            </small>
+          </div>
+        )}
+
+        {requestedGameId && !gameIdResult.success && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Link de sala inválido</strong>
+            <p>Confira o endereço recebido e tente novamente.</p>
+          </div>
+        )}
+
+        {linkedGameId && linkedRoomState.error && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Sala indisponível</strong>
+            <p>{linkedRoomState.error}</p>
+          </div>
+        )}
+
         {!user && (
           <>
             <p>Entre como participante para aguardar uma partida.</p>
@@ -89,7 +131,11 @@ export function HomePage() {
 
         {user && isAnonymous && (
           <>
-            <ParticipantJoinPanel key={user.uid} user={user} />
+            <ParticipantJoinPanel
+              key={user.uid}
+              user={user}
+              initialGameId={linkedGameId}
+            />
 
             <button
               type="button"

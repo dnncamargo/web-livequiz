@@ -27,8 +27,29 @@ const authMock = vi.hoisted(() => ({
   },
 }));
 
+const publicRoomMock = vi.hoisted(() => ({
+  gameId: "",
+  state: {
+    room: null as null | {
+      id: string;
+      phase: "waiting";
+      createdAt: number;
+      participantCount: number;
+    },
+    loading: false,
+    error: null as string | null,
+  },
+}));
+
 vi.mock("../contexts/auth-context", () => ({
   useAuth: () => authMock.value,
+}));
+
+vi.mock("../features/live-game/use-public-waiting-room", () => ({
+  usePublicWaitingRoom: (gameId: string) => {
+    publicRoomMock.gameId = gameId;
+    return publicRoomMock.state;
+  },
 }));
 
 describe("HomePage", () => {
@@ -42,6 +63,10 @@ describe("HomePage", () => {
     authMock.value.authErrorMessage = null;
     authMock.value.signInParticipant.mockReset().mockResolvedValue(undefined);
     authMock.value.logout.mockReset().mockResolvedValue(undefined);
+    publicRoomMock.gameId = "";
+    publicRoomMock.state.room = null;
+    publicRoomMock.state.loading = false;
+    publicRoomMock.state.error = null;
   });
 
   afterEach(cleanup);
@@ -103,6 +128,27 @@ describe("HomePage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Sem conexão com o serviço de autenticação",
     );
+  });
+
+  it("identifica a sala recebida pelo link do participante", () => {
+    publicRoomMock.state.room = {
+      id: "ABC234",
+      phase: "waiting",
+      createdAt: 1_000,
+      participantCount: 3,
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/?sala=abc234"]}>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(publicRoomMock.gameId).toBe("ABC234");
+    expect(screen.getByLabelText("Sala ativa identificada")).toHaveTextContent(
+      "ABC234",
+    );
+    expect(screen.getByText(/3 participante/i)).toBeInTheDocument();
   });
 
   it("não apresenta uma conta Google comum como administradora", () => {

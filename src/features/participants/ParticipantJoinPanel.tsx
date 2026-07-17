@@ -17,6 +17,7 @@ import { useParticipantPresence } from "./use-participant-presence";
 
 interface ParticipantJoinPanelProps {
   user: User;
+  initialGameId?: string;
 }
 
 const MODERATION_STATUS_LABELS = {
@@ -34,7 +35,10 @@ const PRESENCE_STATUS_LABELS = {
   error: "Falha na presença",
 } as const;
 
-export function ParticipantJoinPanel({ user }: ParticipantJoinPanelProps) {
+export function ParticipantJoinPanel({
+  user,
+  initialGameId = "",
+}: ParticipantJoinPanelProps) {
   const [participant, setParticipant] = useState<ParticipantSession | null>(
     null,
   );
@@ -49,7 +53,7 @@ export function ParticipantJoinPanel({ user }: ParticipantJoinPanelProps) {
     formState: { errors, isSubmitting },
   } = useForm<JoinParticipantRequest>({
     resolver: zodResolver(joinParticipantRequestSchema),
-    defaultValues: { gameId: "", nickname: "" },
+    defaultValues: { gameId: initialGameId, nickname: "" },
   });
 
   useEffect(() => {

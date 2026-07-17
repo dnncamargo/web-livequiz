@@ -378,6 +378,107 @@ a:hover {
   font-size: 1.4rem;
 }
 
+.linked-room-notice {
+  display: grid;
+  gap: 5px;
+  margin: 20px auto;
+  padding: 16px 20px;
+  border: 1px solid rgb(85 230 165 / 55%);
+  border-radius: 16px;
+  background: rgb(85 230 165 / 10%);
+}
+
+.linked-room-notice span,
+.linked-room-notice small {
+  color: rgb(255 255 255 / 72%);
+}
+
+.linked-room-notice strong {
+  color: #55e6a5;
+  font-size: 1.65rem;
+  letter-spacing: 0.08em;
+}
+
+.waiting-participants {
+  display: grid;
+  gap: 16px;
+  margin: 26px 0;
+  padding: clamp(18px, 4vw, 26px);
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 5%);
+  text-align: left;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2 {
+  margin: 4px 0 0;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+
+.section-heading > span {
+  color: rgb(255 255 255 / 65%);
+  font-size: 0.9rem;
+}
+
+.participant-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 14px;
+  background: rgb(22 11 49 / 55%);
+}
+
+.participant-list li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.participant-list li > div strong {
+  overflow-wrap: anywhere;
+}
+
+.participant-list li > div span {
+  color: rgb(255 255 255 / 62%);
+  font-size: 0.84rem;
+}
+
+.presence-badge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.presence-badge-connected {
+  color: #071f17;
+  background: #55e6a5;
+}
+
+.presence-badge-disconnected {
+  color: #2c2138;
+  background: #c5b9d6;
+}
+
 .test-result {
   margin: 24px auto;
   padding: 18px;
@@ -538,6 +639,12 @@ a:hover {
 
   .participant-session-summary {
     grid-template-columns: 1fr;
+  }
+
+  .section-heading,
+  .participant-list li {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

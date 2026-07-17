@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWaitingRoom,
+  getManagedWaitingRoom,
   subscribeToPublicWaitingRoom,
   WaitingRoomRequestError,
 } from "./waiting-room";
@@ -88,6 +89,44 @@ describe("cliente da sala de espera", () => {
         "Esta conta não está autorizada a criar salas.",
       ),
     );
+  });
+
+  it("recupera a sala administrativa e seus participantes", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          room: {
+            id: "ABC234",
+            phase: "waiting",
+            createdAt: 1_000,
+            participantCount: 1,
+          },
+          participants: [
+            {
+              participantId: "participante-1",
+              nickname: "Estrela Azul",
+              moderationStatus: "waiting-approval",
+              joinedAt: 2_000,
+              presenceStatus: "connected",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getManagedWaitingRoom({ getIdToken }, "ABC234"),
+    ).resolves.toMatchObject({
+      room: { id: "ABC234" },
+      participants: [{ nickname: "Estrela Azul" }],
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/games?gameId=ABC234", {
+      method: "GET",
+      headers: { authorization: "Bearer token-administrativo" },
+    });
   });
 
   it("explica quando o Vite devolve a aplicação no lugar da API", async () => {

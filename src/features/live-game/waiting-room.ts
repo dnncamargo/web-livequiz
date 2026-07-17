@@ -2,6 +2,10 @@ import type { User } from "firebase/auth";
 import { onValue, ref, type Unsubscribe } from "firebase/database";
 import { realtimeDatabase } from "../../lib/firebase";
 import {
+  managedWaitingRoomResponseSchema,
+  type ManagedWaitingRoom,
+} from "../../shared/participant";
+import {
   apiErrorResponseSchema,
   createWaitingRoomResponseSchema,
   publicWaitingRoomSchema,
@@ -72,6 +76,41 @@ export async function createWaitingRoom(
   }
 
   return result.data.room;
+}
+
+export async function getManagedWaitingRoom(
+  user: Pick<User, "getIdToken">,
+  gameId?: string,
+): Promise<ManagedWaitingRoom> {
+  const idToken = await user.getIdToken();
+  const query = gameId ? `?gameId=${encodeURIComponent(gameId)}` : "";
+  const response = await fetch(`/api/games${query}`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${idToken}` },
+  });
+  const payload = await readApiPayload(response);
+
+  if (!response.ok) {
+    const errorResult = apiErrorResponseSchema.safeParse(payload);
+
+    throw new WaitingRoomRequestError(
+      errorResult.success ? errorResult.data.error.code : "request-failed",
+      errorResult.success
+        ? errorResult.data.error.message
+        : "Não foi possível consultar a sala. Tente novamente.",
+    );
+  }
+
+  const result = managedWaitingRoomResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos para a sala.",
+    );
+  }
+
+  return result.data;
 }
 
 export function subscribeToPublicWaitingRoom(

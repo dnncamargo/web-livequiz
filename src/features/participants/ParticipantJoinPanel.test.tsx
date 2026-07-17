@@ -86,4 +86,14 @@ describe("ParticipantJoinPanel", () => {
     expect(await screen.findByText("Estrela Azul")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
   });
+
+  it("preenche o código identificado no link da sala", async () => {
+    render(
+      <ParticipantJoinPanel user={participantUser} initialGameId="ABC234" />,
+    );
+
+    expect(await screen.findByLabelText("Código da sala")).toHaveValue(
+      "ABC234",
+    );
+  });
 });

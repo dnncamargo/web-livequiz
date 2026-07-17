@@ -15,6 +15,19 @@ const managementMocks = vi.hoisted(() => ({
     displayName: "Professora Ana",
     email: "ana@example.com",
   },
+  activeWaitingRoomState: {
+    waitingRoom: null as null | {
+      room: {
+        id: string;
+        phase: "waiting";
+        createdAt: number;
+        participantCount: number;
+      };
+      participants: unknown[];
+    },
+    loading: false,
+    error: null as string | null,
+  },
 }));
 
 vi.mock("../contexts/auth-context", () => ({
@@ -29,6 +42,10 @@ vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
 }));
 
+vi.mock("../features/live-game/use-managed-waiting-room", () => ({
+  useManagedWaitingRoom: () => managementMocks.activeWaitingRoomState,
+}));
+
 describe("ManagementPage", () => {
   beforeEach(() => {
     managementMocks.logout.mockReset().mockResolvedValue(undefined);
@@ -38,6 +55,9 @@ describe("ManagementPage", () => {
       createdAt: 1_000,
       participantCount: 0,
     });
+    managementMocks.activeWaitingRoomState.waitingRoom = null;
+    managementMocks.activeWaitingRoomState.loading = false;
+    managementMocks.activeWaitingRoomState.error = null;
   });
 
   afterEach(cleanup);
@@ -65,5 +85,30 @@ describe("ManagementPage", () => {
     expect(managementMocks.createWaitingRoom).toHaveBeenCalledWith(
       managementMocks.user,
     );
+  });
+
+  it("permite retomar a sala ativa depois de voltar ao gerenciamento", () => {
+    managementMocks.activeWaitingRoomState.waitingRoom = {
+      room: {
+        id: "ABC234",
+        phase: "waiting",
+        createdAt: 1_000,
+        participantCount: 2,
+      },
+      participants: [],
+    };
+
+    render(
+      <MemoryRouter>
+        <ManagementPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Retomar sala ABC234" }),
+    ).toHaveAttribute("href", "/gerenciar/sala/ABC234");
+    expect(
+      screen.queryByRole("button", { name: "Criar sala de espera" }),
+    ).not.toBeInTheDocument();
   });
 });
