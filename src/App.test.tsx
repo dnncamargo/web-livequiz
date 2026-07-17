@@ -39,6 +39,10 @@ vi.mock("./pages/PresentationPage", () => ({
   PresentationPage: () => <p>Apresentação</p>,
 }));
 
+vi.mock("./pages/WaitingRoomPage", () => ({
+  WaitingRoomPage: () => <p>Sala administrativa</p>,
+}));
+
 describe("rotas administrativas", () => {
   beforeEach(() => {
     authMock.value.user = null;
@@ -75,5 +79,16 @@ describe("rotas administrativas", () => {
     );
 
     expect(screen.getByText("Diagnóstico privado")).toBeInTheDocument();
+  });
+
+  it("protege a rota da sala de espera", () => {
+    render(
+      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Login administrativo")).toBeInTheDocument();
+    expect(screen.queryByText("Sala administrativa")).not.toBeInTheDocument();
   });
 });

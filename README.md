@@ -15,12 +15,14 @@ implementados:
 - contratos compartilhados de fases, cronômetro e presença;
 - presença por aba com `onDisconnect`, heartbeat e tolerância a desconexões
   breves;
-- projeção pública separada do estado privado da partida.
+- projeção pública separada do estado privado da partida;
+- criação segura de salas de espera pela API da Vercel;
+- código público de seis caracteres e rota administrativa recuperável após
+  atualização da página.
 
-A presença está preparada para ser ativada pela sala de espera, que será
-responsável por criar o registro privado do participante antes da conexão. As
-funcionalidades de sala, quizzes e partida serão implementadas nos próximos
-marcos definidos em `AGENTS.md`.
+A entrada na sala e a ativação da presença serão implementadas junto com a
+escolha de nickname. As funcionalidades de quizzes e partida serão
+implementadas nos próximos marcos definidos em `AGENTS.md`.
 
 ## Requisitos
 
@@ -46,6 +48,27 @@ VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 VITE_FIREBASE_DATABASE_URL
 ```
+
+## Configuração administrativa na Vercel
+
+A criação de salas é executada por uma função segura em `/api/games`. Ela
+valida o token Google e o documento `administrators/{uid}` antes de usar o
+Firebase Admin SDK.
+
+Adicione estas variáveis somente nos ambientes da Vercel. Elas não podem usar o
+prefixo `VITE_` nem ser expostas ao navegador:
+
+```text
+FIREBASE_ADMIN_PROJECT_ID
+FIREBASE_ADMIN_CLIENT_EMAIL
+FIREBASE_ADMIN_PRIVATE_KEY
+FIREBASE_ADMIN_DATABASE_URL
+```
+
+Os três primeiros valores vêm da conta de serviço do projeto Firebase. A URL do
+banco é a URL completa da instância do Realtime Database. Ao colar a chave
+privada na Vercel, preserve o conteúdo completo, inclusive o cabeçalho e o
+rodapé.
 
 ## Cadastrar um administrador
 
@@ -88,9 +111,9 @@ No Realtime Database:
 - a identificação de cada aba impede que uma desconexão remova a presença das
   demais abas.
 
-As regras administrativas do estado privado continuam fechadas até existir um
-controlador confiável ou custom claims. Conceder escrita a qualquer conta Google
-não é uma alternativa segura.
+As regras administrativas do estado privado permanecem fechadas para clientes.
+A função segura da Vercel é o controlador confiável que valida o administrador
+antes de criar `liveGames/{gameId}` e sua projeção em `publicGames/{gameId}`.
 
 Com a Firebase CLI autenticada no projeto correto, publique as regras com:
 
@@ -114,3 +137,8 @@ projeto fictício `demo-quizumba`; ele não acessa nem altera o banco de produç
 
 O deploy da aplicação web é feito pela Vercel. As regras e serviços de dados
 continuam sendo gerenciados pelo Firebase.
+
+> **Teste da criação de salas:** `npm run dev` inicia somente o frontend do
+> Vite e não executa as funções da pasta `api/`. Teste esse fluxo na versão
+> publicada na Vercel ou use `vercel dev` com o projeto vinculado e as variáveis
+> administrativas configuradas. Nunca transforme essas variáveis em `VITE_*`.

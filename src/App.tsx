@@ -5,6 +5,7 @@ import { FirebaseTestPage } from "./pages/FirebaseTestPage";
 import { HomePage } from "./pages/HomePage";
 import { ManagementPage } from "./pages/ManagementPage";
 import { PresentationPage } from "./pages/PresentationPage";
+import { WaitingRoomPage } from "./pages/WaitingRoomPage";
 
 export function App() {
   return (
@@ -29,6 +30,15 @@ export function App() {
         element={
           <RequireAdministrator>
             <ManagementPage />
+          </RequireAdministrator>
+        }
+      />
+
+      <Route
+        path="/gerenciar/sala/:id"
+        element={
+          <RequireAdministrator>
+            <WaitingRoomPage />
           </RequireAdministrator>
         }
       />

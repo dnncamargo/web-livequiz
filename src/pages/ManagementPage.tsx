@@ -1,12 +1,39 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { getAuthErrorMessage } from "../features/auth/auth-errors";
+import {
+  createWaitingRoom,
+  WaitingRoomRequestError,
+} from "../features/live-game/waiting-room";
 
 export function ManagementPage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  async function handleCreateWaitingRoom() {
+    if (!user) {
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      const room = await createWaitingRoom(user);
+      navigate(`/gerenciar/sala/${room.id}`);
+    } catch (error) {
+      console.error("Erro ao criar sala de espera:", error);
+      setErrorMessage(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível criar a sala. Tente novamente.",
+      );
+      setSubmitting(false);
+    }
+  }
 
   async function handleLogout() {
     setSubmitting(true);
@@ -36,6 +63,18 @@ export function ManagementPage() {
 
         <p>Sessão administrativa autenticada.</p>
 
+        <div className="management-actions">
+          <button
+            type="button"
+            className="primary-button"
+            disabled={submitting}
+            onClick={handleCreateWaitingRoom}
+          >
+            {submitting ? "Criando sala..." : "Criar sala de espera"}
+          </button>
+          <span>Gera um código seguro para a próxima partida.</span>
+        </div>
+
         <div className="auth-diagnostic">
           <span>Administrador</span>
 
@@ -59,7 +98,7 @@ export function ManagementPage() {
 
         {errorMessage && (
           <div className="test-result test-result-error" role="alert">
-            <strong>Não foi possível sair</strong>
+            <strong>Não foi possível concluir a ação</strong>
             <p>{errorMessage}</p>
           </div>
         )}
