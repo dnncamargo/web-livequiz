@@ -16,5 +16,9 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["api", "src/shared/waiting-room.ts"]
+  "include": [
+    "api",
+    "src/shared/connection-diagnostics.ts",
+    "src/shared/waiting-room.ts"
+  ]
 }

@@ -70,6 +70,17 @@ banco é a URL completa da instância do Realtime Database. Ao colar a chave
 privada na Vercel, preserve o conteúdo completo, inclusive o cabeçalho e o
 rodapé.
 
+## Diagnóstico de conexões
+
+A rota administrativa `/firebase-test` executa verificações independentes de
+rede, sessão Google, token, Firestore, Realtime Database, função da Vercel e
+Firebase Admin. A verificação do servidor usa `/api/diagnostics` e retorna
+orientações seguras por camada, sem revelar credenciais.
+
+O diagnóstico é somente leitura: ele não cria documentos, participantes ou
+salas. Para verificar a configuração efetivamente publicada, execute-o no
+deploy da Vercel após entrar com uma conta administrativa.
+
 ## Cadastrar um administrador
 
 1. Entre uma vez com a conta Google para que ela apareça no Firebase

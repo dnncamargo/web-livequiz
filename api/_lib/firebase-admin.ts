@@ -16,6 +16,7 @@ const administratorEnvironmentSchema = z.object({
 export interface FirebaseAdminServices {
   verifyIdToken: (idToken: string) => Promise<unknown>;
   getAdministratorProfile: (uid: string) => Promise<unknown | null>;
+  checkRealtimeDatabaseConnection: () => Promise<void>;
   claimWaitingRoom: (
     gameId: string,
     privateRoom: Record<string, unknown>,
@@ -27,14 +28,30 @@ export interface FirebaseAdminServices {
   removeWaitingRoom: (gameId: string) => Promise<void>;
 }
 
+export type FirebaseAdminConfigurationErrorCode =
+  | "firebase-admin-environment-invalid"
+  | "firebase-admin-private-key-invalid"
+  | "firebase-admin-initialization-failed";
+
+export class FirebaseAdminConfigurationError extends Error {
+  readonly code: FirebaseAdminConfigurationErrorCode;
+
+  constructor(code: FirebaseAdminConfigurationErrorCode, message: string) {
+    super(message);
+    this.name = "FirebaseAdminConfigurationError";
+    this.code = code;
+  }
+}
+
 let cachedServices: FirebaseAdminServices | null = null;
 
 function getAdministratorEnvironment() {
   const result = administratorEnvironmentSchema.safeParse(process.env);
 
   if (!result.success) {
-    throw new Error(
-      "A integração administrativa do Firebase não está configurada no servidor.",
+    throw new FirebaseAdminConfigurationError(
+      "firebase-admin-environment-invalid",
+      "Uma ou mais variáveis administrativas do Firebase estão ausentes ou inválidas.",
     );
   }
 
@@ -50,22 +67,45 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
   const privateKey = environment.FIREBASE_ADMIN_PRIVATE_KEY.replace(
     /\\n/g,
     "\n",
-  );
-  const existingApp = getApps().find(({ name }) => name === ADMIN_APP_NAME);
-  const app =
-    existingApp ??
-    initializeApp(
-      {
-        credential: cert({
-          projectId: environment.FIREBASE_ADMIN_PROJECT_ID,
-          clientEmail: environment.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey,
-        }),
-        databaseURL: environment.FIREBASE_ADMIN_DATABASE_URL,
-        projectId: environment.FIREBASE_ADMIN_PROJECT_ID,
-      },
-      ADMIN_APP_NAME,
+  ).trim();
+
+  if (
+    !privateKey.startsWith("-----BEGIN PRIVATE KEY-----") ||
+    !privateKey.endsWith("-----END PRIVATE KEY-----")
+  ) {
+    throw new FirebaseAdminConfigurationError(
+      "firebase-admin-private-key-invalid",
+      "A chave privada da conta de serviço não possui o formato PEM esperado.",
     );
+  }
+
+  const existingApp = getApps().find(({ name }) => name === ADMIN_APP_NAME);
+  let app = existingApp;
+
+  if (!app) {
+    try {
+      app = initializeApp(
+        {
+          credential: cert({
+            projectId: environment.FIREBASE_ADMIN_PROJECT_ID,
+            clientEmail: environment.FIREBASE_ADMIN_CLIENT_EMAIL,
+            privateKey,
+          }),
+          databaseURL: environment.FIREBASE_ADMIN_DATABASE_URL,
+          projectId: environment.FIREBASE_ADMIN_PROJECT_ID,
+        },
+        ADMIN_APP_NAME,
+      );
+    } catch (error) {
+      console.error("Falha ao inicializar Firebase Admin:", error);
+
+      throw new FirebaseAdminConfigurationError(
+        "firebase-admin-initialization-failed",
+        "A conta de serviço do Firebase não pôde ser inicializada.",
+      );
+    }
+  }
+
   const auth = getAuth(app);
   const firestore = getFirestore(app);
   const database = getDatabase(app);
@@ -76,6 +116,9 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       const snapshot = await firestore.doc(`administrators/${uid}`).get();
 
       return snapshot.exists ? snapshot.data() : null;
+    },
+    checkRealtimeDatabaseConnection: async () => {
+      await database.ref("publicGames").limitToFirst(1).get();
     },
     claimWaitingRoom: async (gameId, privateRoom) => {
       const result = await database

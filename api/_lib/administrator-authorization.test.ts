@@ -16,6 +16,7 @@ function createServices(): FirebaseAdminServices {
       active: true,
       email: "admin@example.com",
     }),
+    checkRealtimeDatabaseConnection: vi.fn(),
     claimWaitingRoom: vi.fn(),
     publishWaitingRoom: vi.fn(),
     removeWaitingRoom: vi.fn(),

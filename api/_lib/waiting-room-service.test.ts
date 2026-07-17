@@ -9,6 +9,7 @@ function createServices(): FirebaseAdminServices {
   return {
     verifyIdToken: vi.fn(),
     getAdministratorProfile: vi.fn(),
+    checkRealtimeDatabaseConnection: vi.fn(),
     claimWaitingRoom: vi.fn().mockResolvedValue(true),
     publishWaitingRoom: vi.fn().mockResolvedValue(undefined),
     removeWaitingRoom: vi.fn().mockResolvedValue(undefined),
