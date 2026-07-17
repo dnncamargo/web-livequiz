@@ -4,6 +4,7 @@ import {
   createWaitingRoom,
   generateWaitingRoomCode,
   getManagedWaitingRoom,
+  removeWaitingRoomParticipant,
 } from "./waiting-room-service.js";
 
 function createServices(): FirebaseAdminServices {
@@ -19,6 +20,7 @@ function createServices(): FirebaseAdminServices {
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
     publishParticipantCount: vi.fn(),
+    removeParticipant: vi.fn(),
   };
 }
 
@@ -159,5 +161,87 @@ describe("serviço de sala de espera", () => {
       status: 403,
       code: "waiting-room-owner-required",
     });
+  });
+
+  it("remove um participante somente depois de validar o proprietário", async () => {
+    const services = createServices();
+    const activeParticipant = {
+      nickname: "Estrela Azul",
+      moderationStatus: "waiting-approval" as const,
+      joinedAt: 2_000,
+    };
+    const removedParticipant = {
+      ...activeParticipant,
+      moderationStatus: "removed" as const,
+    };
+
+    vi.mocked(services.getWaitingRoom)
+      .mockResolvedValueOnce({
+        ownerId: "administrador-1",
+        phase: "waiting",
+        createdAt: 1_000,
+        participants: { "participante-1": activeParticipant },
+      })
+      .mockResolvedValueOnce({
+        ownerId: "administrador-1",
+        phase: "waiting",
+        createdAt: 1_000,
+        participants: { "participante-1": removedParticipant },
+      });
+    vi.mocked(services.removeParticipant).mockResolvedValue({
+      removed: true,
+      participantCount: 0,
+    });
+
+    const waitingRoom = await removeWaitingRoomParticipant(
+      "administrador-1",
+      {
+        gameId: "ABC234",
+        participantId: "participante-1",
+        action: "remove",
+      },
+      services,
+      () => 3_000,
+    );
+
+    expect(services.removeParticipant).toHaveBeenCalledWith(
+      "ABC234",
+      "participante-1",
+      3_000,
+    );
+    expect(services.publishParticipantCount).toHaveBeenCalledWith("ABC234", 0);
+    expect(waitingRoom.participants[0]?.moderationStatus).toBe("removed");
+  });
+
+  it("não remove participante de uma sala pertencente a outro administrador", async () => {
+    const services = createServices();
+    vi.mocked(services.getWaitingRoom).mockResolvedValue({
+      ownerId: "outro-administrador",
+      phase: "waiting",
+      createdAt: 1_000,
+      participants: {
+        "participante-1": {
+          nickname: "Estrela Azul",
+          moderationStatus: "waiting-approval",
+          joinedAt: 2_000,
+        },
+      },
+    });
+
+    await expect(
+      removeWaitingRoomParticipant(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          participantId: "participante-1",
+          action: "remove",
+        },
+        services,
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: "waiting-room-owner-required",
+    });
+    expect(services.removeParticipant).not.toHaveBeenCalled();
   });
 });

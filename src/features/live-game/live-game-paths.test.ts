@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getParticipantConnectionsPath,
+  getParticipantModerationStatusPath,
   getParticipantPresencePath,
 } from "./live-game-paths";
 
@@ -21,6 +22,13 @@ describe("caminhos da partida no Realtime Database", () => {
     ).toBe(
       "liveGames/sala-123/participants/participante-1/presence/connections",
     );
+
+    expect(
+      getParticipantModerationStatusPath({
+        gameId: "sala-123",
+        participantId: "participante-1",
+      }),
+    ).toBe("liveGames/sala-123/participants/participante-1/moderationStatus");
   });
 
   it.each(["sala/invasora", "sala#invasora", "", "   "])(

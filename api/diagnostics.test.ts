@@ -17,6 +17,7 @@ const diagnosticMocks = vi.hoisted(() => ({
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
     publishParticipantCount: vi.fn(),
+    removeParticipant: vi.fn(),
   },
 }));
 

@@ -15,6 +15,7 @@ function createServices(decodedToken: unknown): FirebaseAdminServices {
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
     publishParticipantCount: vi.fn(),
+    removeParticipant: vi.fn(),
   };
 }
 

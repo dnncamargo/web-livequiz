@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWaitingRoom,
   getManagedWaitingRoom,
+  removeWaitingRoomParticipant,
   subscribeToPublicWaitingRoom,
   WaitingRoomRequestError,
 } from "./waiting-room";
@@ -126,6 +127,57 @@ describe("cliente da sala de espera", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/games?gameId=ABC234", {
       method: "GET",
       headers: { authorization: "Bearer token-administrativo" },
+    });
+  });
+
+  it("solicita a remoção administrativa de um participante", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const responseBody = {
+      room: {
+        id: "ABC234",
+        phase: "waiting",
+        createdAt: 1_000,
+        participantCount: 0,
+      },
+      participants: [
+        {
+          participantId: "participante-1",
+          nickname: "Estrela Azul",
+          moderationStatus: "removed",
+          joinedAt: 2_000,
+          presenceStatus: "disconnected",
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      removeWaitingRoomParticipant(
+        { getIdToken },
+        {
+          gameId: "ABC234",
+          participantId: "participante-1",
+          action: "remove",
+        },
+      ),
+    ).resolves.toEqual(responseBody);
+    expect(fetchMock).toHaveBeenCalledWith("/api/games", {
+      method: "PATCH",
+      headers: {
+        authorization: "Bearer token-administrativo",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        gameId: "ABC234",
+        participantId: "participante-1",
+        action: "remove",
+      }),
     });
   });
 

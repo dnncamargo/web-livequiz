@@ -9,10 +9,12 @@ import {
   type ParticipantSession,
 } from "../../shared/participant";
 import {
+  clearActiveParticipantSession,
   joinParticipantSession,
   ParticipantSessionRequestError,
   restoreParticipantSession,
 } from "./participant-session";
+import { useParticipantModerationStatus } from "./use-participant-moderation-status";
 import { useParticipantPresence } from "./use-participant-presence";
 
 interface ParticipantJoinPanelProps {
@@ -59,8 +61,14 @@ export function ParticipantJoinPanel({
   const [restoring, setRestoring] = useState(true);
   const [requestFailure, setRequestFailure] =
     useState<ParticipantRequestFailure | null>(null);
+  const moderation = useParticipantModerationStatus(
+    participant?.gameId ?? null,
+    user.uid,
+  );
+  const effectiveModerationStatus =
+    moderation.status ?? participant?.moderationStatus;
   const activePresenceGameId =
-    participant?.moderationStatus === "removed" ? null : participant?.gameId;
+    effectiveModerationStatus === "removed" ? null : participant?.gameId;
   const presence = useParticipantPresence(activePresenceGameId ?? null);
   const {
     register,
@@ -120,6 +128,12 @@ export function ParticipantJoinPanel({
     }
   });
 
+  function leaveCurrentRoom() {
+    clearActiveParticipantSession();
+    setParticipant(null);
+    setRequestFailure(null);
+  }
+
   if (restoring) {
     return (
       <div className="participant-loading" role="status" aria-live="polite">
@@ -143,7 +157,11 @@ export function ParticipantJoinPanel({
           <div>
             <span>Situação</span>
             <strong>
-              {MODERATION_STATUS_LABELS[participant.moderationStatus]}
+              {
+                MODERATION_STATUS_LABELS[
+                  effectiveModerationStatus ?? participant.moderationStatus
+                ]
+              }
             </strong>
           </div>
           <div>
@@ -159,10 +177,35 @@ export function ParticipantJoinPanel({
           </div>
         )}
 
-        <p>
-          Seu nickname foi salvo. A escolha de avatar será liberada no próximo
-          marco.
-        </p>
+        {moderation.error && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Falha ao acompanhar sua entrada</strong>
+            <p>{moderation.error}</p>
+          </div>
+        )}
+
+        {effectiveModerationStatus === "removed" && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Você foi removido desta sala</strong>
+            <p>
+              Sua conexão com esta partida foi encerrada pelo administrador.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={leaveCurrentRoom}
+            >
+              Procurar outra sala
+            </button>
+          </div>
+        )}
+
+        {effectiveModerationStatus !== "removed" && (
+          <p>
+            Seu nickname foi salvo. A escolha de avatar será liberada no próximo
+            marco.
+          </p>
+        )}
       </div>
     );
   }

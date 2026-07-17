@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "./_lib/http-error.js";
-import { GET, POST } from "./games.js";
+import { GET, PATCH, POST } from "./games.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
   authorizeAdministratorRequest: vi.fn(),
   createWaitingRoom: vi.fn(),
   getManagedWaitingRoom: vi.fn(),
+  removeWaitingRoomParticipant: vi.fn(),
 }));
 
 vi.mock("./_lib/firebase-admin.js", () => ({
@@ -20,6 +21,7 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 vi.mock("./_lib/waiting-room-service.js", () => ({
   createWaitingRoom: apiMocks.createWaitingRoom,
   getManagedWaitingRoom: apiMocks.getManagedWaitingRoom,
+  removeWaitingRoomParticipant: apiMocks.removeWaitingRoomParticipant,
 }));
 
 const room = {
@@ -36,6 +38,10 @@ describe("/api/games", () => {
       .mockResolvedValue({ uid: "administrador-1" });
     apiMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
     apiMocks.getManagedWaitingRoom.mockReset().mockResolvedValue({
+      room,
+      participants: [],
+    });
+    apiMocks.removeWaitingRoomParticipant.mockReset().mockResolvedValue({
       room,
       participants: [],
     });
@@ -101,5 +107,30 @@ describe("/api/games", () => {
       error: { code: "administrator-not-authorized" },
     });
     expect(apiMocks.createWaitingRoom).not.toHaveBeenCalled();
+  });
+
+  it("remove um participante da sala administrada", async () => {
+    const request = new Request("https://quizumba.example/api/games", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        gameId: "ABC234",
+        participantId: "participante-1",
+        action: "remove",
+      }),
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    expect(apiMocks.removeWaitingRoomParticipant).toHaveBeenCalledWith(
+      "administrador-1",
+      {
+        gameId: "ABC234",
+        participantId: "participante-1",
+        action: "remove",
+      },
+      apiMocks.services,
+    );
   });
 });

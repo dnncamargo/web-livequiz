@@ -103,6 +103,32 @@ describe("regras do Realtime Database", () => {
     );
   });
 
+  it("permite que o participante acompanhe somente a própria moderação", async () => {
+    await seedParticipant("participante-1");
+    await seedParticipant("participante-2");
+    const database = participantDatabase("participante-1");
+
+    await assertSucceeds(
+      get(
+        ref(
+          database,
+          "liveGames/sala-1/participants/participante-1/moderationStatus",
+        ),
+      ),
+    );
+    await assertFails(
+      get(
+        ref(
+          database,
+          "liveGames/sala-1/participants/participante-2/moderationStatus",
+        ),
+      ),
+    );
+    await assertFails(
+      get(ref(database, "liveGames/sala-1/participants/participante-1")),
+    );
+  });
+
   it("bloqueia escrita por outro participante", async () => {
     await seedParticipant("participante-1");
     const attackerDatabase = participantDatabase("participante-2");
@@ -238,6 +264,14 @@ describe("regras do Realtime Database", () => {
           connectedAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
         },
+      ),
+    );
+    await assertFails(
+      get(
+        ref(
+          googleDatabase,
+          "liveGames/sala-1/participants/participante-1/moderationStatus",
+        ),
       ),
     );
   });

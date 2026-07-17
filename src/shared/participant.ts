@@ -59,6 +59,14 @@ export const participantSessionResponseSchema = z
   .object({ participant: participantSessionSchema })
   .strict();
 
+export const removeWaitingRoomParticipantRequestSchema = z
+  .object({
+    gameId: participantGameCodeSchema,
+    participantId: z.string().min(1),
+    action: z.literal("remove"),
+  })
+  .strict();
+
 export const managedWaitingRoomParticipantSchema = z
   .object({
     participantId: z.string().min(1),
@@ -83,6 +91,9 @@ export type ParticipantModerationStatus = z.infer<
   typeof participantModerationStatusSchema
 >;
 export type ParticipantSession = z.infer<typeof participantSessionSchema>;
+export type RemoveWaitingRoomParticipantRequest = z.infer<
+  typeof removeWaitingRoomParticipantRequestSchema
+>;
 export type ManagedWaitingRoom = z.infer<
   typeof managedWaitingRoomResponseSchema
 >;

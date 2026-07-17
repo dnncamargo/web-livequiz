@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
+import {
+  removeWaitingRoomParticipant,
+  WaitingRoomRequestError,
+} from "../features/live-game/waiting-room";
 
 const MODERATION_LABELS = {
   "waiting-approval": "Aguardando aprovação",
@@ -12,12 +17,52 @@ const MODERATION_LABELS = {
 export function WaitingRoomPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  const [participantPendingRemoval, setParticipantPendingRemoval] = useState<
+    string | null
+  >(null);
+  const [removingParticipantId, setRemovingParticipantId] = useState<
+    string | null
+  >(null);
+  const [participantActionError, setParticipantActionError] = useState("");
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const publicRoomState = usePublicWaitingRoom(id);
-  const managedRoomState = useManagedWaitingRoom(user, id);
+  const managedRoomState = useManagedWaitingRoom(
+    user,
+    id,
+    `${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
+  );
   const room = publicRoomState.room ?? managedRoomState.waitingRoom?.room;
   const participants = managedRoomState.waitingRoom?.participants ?? [];
   const loading = publicRoomState.loading && managedRoomState.loading;
   const error = publicRoomState.error ?? managedRoomState.error;
+
+  async function confirmParticipantRemoval(participantId: string) {
+    if (!user) {
+      return;
+    }
+
+    setRemovingParticipantId(participantId);
+    setParticipantActionError("");
+
+    try {
+      await removeWaitingRoomParticipant(user, {
+        gameId: id,
+        participantId,
+        action: "remove",
+      });
+      setParticipantPendingRemoval(null);
+      setRefreshRevision((revision) => revision + 1);
+    } catch (error) {
+      console.error("Erro ao remover participante:", error);
+      setParticipantActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível remover o participante. Tente novamente.",
+      );
+    } finally {
+      setRemovingParticipantId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -95,6 +140,13 @@ export function WaitingRoomPage() {
             </div>
           )}
 
+          {participantActionError && (
+            <div className="test-result test-result-error" role="alert">
+              <strong>Não foi possível remover o participante</strong>
+              <p>{participantActionError}</p>
+            </div>
+          )}
+
           {!managedRoomState.loading &&
             !managedRoomState.error &&
             participants.length === 0 && (
@@ -111,13 +163,63 @@ export function WaitingRoomPage() {
                       {MODERATION_LABELS[participant.moderationStatus]}
                     </span>
                   </div>
-                  <span
-                    className={`presence-badge presence-badge-${participant.presenceStatus}`}
-                  >
-                    {participant.presenceStatus === "connected"
-                      ? "Conectado"
-                      : "Desconectado"}
-                  </span>
+                  <div className="participant-list-actions">
+                    <span
+                      className={`presence-badge presence-badge-${participant.presenceStatus}`}
+                    >
+                      {participant.presenceStatus === "connected"
+                        ? "Conectado"
+                        : "Desconectado"}
+                    </span>
+
+                    {participant.moderationStatus !== "removed" &&
+                      participantPendingRemoval !==
+                        participant.participantId && (
+                        <button
+                          type="button"
+                          className="danger-button compact-button"
+                          onClick={() =>
+                            setParticipantPendingRemoval(
+                              participant.participantId,
+                            )
+                          }
+                        >
+                          Remover {participant.nickname}
+                        </button>
+                      )}
+
+                    {participantPendingRemoval ===
+                      participant.participantId && (
+                      <div className="removal-confirmation">
+                        <button
+                          type="button"
+                          className="danger-button compact-button"
+                          disabled={
+                            removingParticipantId === participant.participantId
+                          }
+                          onClick={() =>
+                            void confirmParticipantRemoval(
+                              participant.participantId,
+                            )
+                          }
+                        >
+                          {removingParticipantId === participant.participantId
+                            ? "Removendo..."
+                            : "Confirmar remoção"}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          disabled={
+                            removingParticipantId === participant.participantId
+                          }
+                          onClick={() => setParticipantPendingRemoval(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

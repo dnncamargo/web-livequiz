@@ -11,7 +11,9 @@ import {
   managedWaitingRoomResponseSchema,
   participantModerationStatusSchema,
   participantNicknameSchema,
+  removeWaitingRoomParticipantRequestSchema,
   type ManagedWaitingRoom,
+  type RemoveWaitingRoomParticipantRequest,
 } from "../../src/shared/participant.js";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import { HttpError } from "./http-error.js";
@@ -193,4 +195,43 @@ export async function getManagedWaitingRoom(
     },
     participants,
   });
+}
+
+export async function removeWaitingRoomParticipant(
+  ownerId: string,
+  input: RemoveWaitingRoomParticipantRequest,
+  services: FirebaseAdminServices,
+  now: () => number = Date.now,
+): Promise<ManagedWaitingRoom> {
+  const parsedInput = removeWaitingRoomParticipantRequestSchema.parse(input);
+
+  await getManagedWaitingRoom(ownerId, services, parsedInput.gameId);
+
+  const removal = await services.removeParticipant(
+    parsedInput.gameId,
+    parsedInput.participantId,
+    now(),
+  );
+
+  if (!removal.removed) {
+    throw new HttpError(
+      404,
+      "participant-not-found",
+      "O participante não está mais nesta sala.",
+    );
+  }
+
+  try {
+    await services.publishParticipantCount(
+      parsedInput.gameId,
+      removal.participantCount,
+    );
+  } catch (error) {
+    console.error(
+      "Participante removido, mas a contagem pública não foi atualizada:",
+      error,
+    );
+  }
+
+  return getManagedWaitingRoom(ownerId, services, parsedInput.gameId);
 }

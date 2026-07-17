@@ -44,6 +44,11 @@ export interface FirebaseAdminServices {
     gameId: string,
     participantCount: number,
   ) => Promise<void>;
+  removeParticipant: (
+    gameId: string,
+    participantId: string,
+    removedAt: number,
+  ) => Promise<ParticipantRemovalResult>;
 }
 
 export type ParticipantRegistrationOutcome =
@@ -56,6 +61,11 @@ export type ParticipantRegistrationOutcome =
 export interface ParticipantRegistrationResult {
   outcome: ParticipantRegistrationOutcome;
   participant: unknown | null;
+  participantCount: number;
+}
+
+export interface ParticipantRemovalResult {
+  removed: boolean;
   participantCount: number;
 }
 
@@ -354,6 +364,82 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       await database
         .ref(`publicGames/${gameId}/participantCount`)
         .set(participantCount);
+    },
+    removeParticipant: async (gameId, participantId, removedAt) => {
+      const gameReference = database.ref(`liveGames/${gameId}`);
+      const initialSnapshot = await gameReference.get();
+      const initialGame: unknown = initialSnapshot.val();
+
+      if (!isRecord(initialGame)) {
+        return { removed: false, participantCount: 0 };
+      }
+
+      let participantFound = false;
+      const result = await gameReference.transaction(
+        (currentValue: unknown) => {
+          const transactionGame = resolveParticipantTransactionGame(
+            currentValue,
+            initialGame,
+          );
+
+          if (!transactionGame) {
+            return undefined;
+          }
+
+          const participants = isRecord(transactionGame.participants)
+            ? transactionGame.participants
+            : {};
+          const participant = participants[participantId];
+
+          if (!isRecord(participant)) {
+            return undefined;
+          }
+
+          participantFound = true;
+
+          if (participant.moderationStatus === "removed") {
+            return transactionGame;
+          }
+
+          const presence = isRecord(participant.presence)
+            ? participant.presence
+            : {};
+
+          return {
+            ...transactionGame,
+            participants: {
+              ...participants,
+              [participantId]: {
+                ...participant,
+                moderationStatus: "removed",
+                removedAt,
+                presence: {
+                  ...presence,
+                  connections: null,
+                  lastDisconnectedAt: removedAt,
+                },
+              },
+            },
+            updatedAt: removedAt,
+          };
+        },
+        undefined,
+        false,
+      );
+
+      if (!result.committed || !participantFound) {
+        return { removed: false, participantCount: 0 };
+      }
+
+      const gameValue: unknown = result.snapshot.val();
+      const participants = isRecord(gameValue)
+        ? gameValue.participants
+        : undefined;
+
+      return {
+        removed: true,
+        participantCount: countRegisteredParticipants(participants),
+      };
     },
   };
 

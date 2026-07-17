@@ -20,6 +20,7 @@ type AdministratorUser = Pick<User, "uid" | "getIdToken">;
 export function useManagedWaitingRoom(
   user: AdministratorUser | null,
   gameId?: string,
+  refreshRevision: string | number = 0,
 ): ManagedWaitingRoomState {
   const scope = user ? `${user.uid}:${gameId ?? "active"}` : "signed-out";
   const [state, setState] = useState<ScopedManagedWaitingRoomState>({
@@ -77,7 +78,7 @@ export function useManagedWaitingRoom(
       active = false;
       clearTimeout(refreshTimer);
     };
-  }, [gameId, scope, user]);
+  }, [gameId, refreshRevision, scope, user]);
 
   if (!user) {
     return { waitingRoom: null, loading: false, error: null };

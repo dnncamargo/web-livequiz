@@ -41,3 +41,11 @@ export function getParticipantConnectionsPath(
 ): string {
   return `${getParticipantPresencePath(input)}/connections`;
 }
+
+export function getParticipantModerationStatusPath(
+  input: ParticipantPresencePathInput,
+): string {
+  const presencePath = getParticipantPresencePath(input);
+
+  return `${presencePath.slice(0, -"/presence".length)}/moderationStatus`;
+}

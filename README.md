@@ -25,11 +25,14 @@ implementados:
 - bloqueio de nicknames duplicados e publicação apenas da contagem de
   participantes no estado público;
 - recuperação da sala de espera ativa ao retornar ao gerenciamento;
-- lista privada de participantes atualizada no painel administrativo;
+- lista privada de participantes atualizada no painel administrativo assim que
+  a contagem pública muda, com verificação periódica como contingência;
+- remoção administrativa com confirmação, encerramento das conexões ativas e
+  aviso em tempo real no dispositivo removido;
 - link de entrada que identifica e preenche automaticamente o código da sala
   para o participante.
 
-A escolha de avatar e a moderação da entrada serão implementadas nos próximos
+A escolha de avatar e a aprovação da entrada serão implementadas nos próximos
 marcos definidos em `AGENTS.md`. As funcionalidades de quizzes e partida
 continuam previstas para as etapas posteriores.
 
@@ -101,6 +104,10 @@ um código, ela recupera a sala de espera ativa pertencente ao administrador;
 com `gameId`, retorna a sala e sua lista privada de participantes. Essa lista
 não é copiada para `publicGames`.
 
+A operação autenticada `PATCH /api/games` remove um participante somente quando
+a sala pertence ao administrador solicitante. A remoção marca o registro como
+removido, encerra suas conexões e atualiza apenas a contagem pública.
+
 O link `/?sala=CODIGO` confirma publicamente a sala ativa e preenche o código
 de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
 uma janela anônima, outro perfil ou outro dispositivo para testar o participante
@@ -155,6 +162,9 @@ No Realtime Database:
 - `liveGames/{gameId}` permanece privado;
 - um participante anônimo pode manter apenas as próprias conexões e somente
   depois que seu registro tiver sido criado na partida;
+- esse participante pode ler apenas o próprio `moderationStatus`, necessário
+  para receber em tempo real o aviso de remoção, sem acesso ao restante do
+  registro privado;
 - a identificação de cada aba impede que uma desconexão remova a presença das
   demais abas.
 

@@ -461,6 +461,45 @@ a:hover {
   font-size: 0.84rem;
 }
 
+.participant-list .participant-list-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.removal-confirmation {
+  display: flex;
+  gap: 8px;
+}
+
+.danger-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #ff8ca9;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgb(157 24 67 / 65%);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: rgb(190 30 80 / 82%);
+}
+
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.compact-button {
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 13px;
+  font-size: 0.82rem;
+}
+
 .presence-badge {
   flex: 0 0 auto;
   padding: 7px 10px;
@@ -645,6 +684,13 @@ a:hover {
   .participant-list li {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .participant-list .participant-list-actions,
+  .removal-confirmation {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
   }
 }
 

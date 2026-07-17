@@ -12,6 +12,11 @@ const joinPanelMocks = vi.hoisted(() => ({
   joinParticipantSession: vi.fn(),
   restoreParticipantSession: vi.fn(),
   presence: { status: "connected" as const, error: null },
+  presenceGameId: "" as string | null,
+  moderation: {
+    status: null as null | "waiting-approval" | "approved" | "removed",
+    error: null as string | null,
+  },
 }));
 
 vi.mock("./participant-session", async (importOriginal) => {
@@ -26,7 +31,14 @@ vi.mock("./participant-session", async (importOriginal) => {
 });
 
 vi.mock("./use-participant-presence", () => ({
-  useParticipantPresence: () => joinPanelMocks.presence,
+  useParticipantPresence: (gameId: string | null) => {
+    joinPanelMocks.presenceGameId = gameId;
+    return joinPanelMocks.presence;
+  },
+}));
+
+vi.mock("./use-participant-moderation-status", () => ({
+  useParticipantModerationStatus: () => joinPanelMocks.moderation,
 }));
 
 const participantUser = {
@@ -51,6 +63,9 @@ describe("ParticipantJoinPanel", () => {
     joinPanelMocks.joinParticipantSession
       .mockReset()
       .mockResolvedValue(participant);
+    joinPanelMocks.presenceGameId = "";
+    joinPanelMocks.moderation.status = null;
+    joinPanelMocks.moderation.error = null;
   });
 
   afterEach(cleanup);
@@ -86,6 +101,22 @@ describe("ParticipantJoinPanel", () => {
 
     expect(await screen.findByText("Estrela Azul")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
+  });
+
+  it("encerra a presença quando o administrador remove o participante", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.moderation.status = "removed";
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(
+      await screen.findByText("Você foi removido desta sala"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Entrada removida")).toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Procurar outra sala" }),
+    ).toBeInTheDocument();
   });
 
   it("preenche o código identificado no link da sala", async () => {

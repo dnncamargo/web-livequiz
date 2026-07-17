@@ -3,7 +3,9 @@ import { onValue, ref, type Unsubscribe } from "firebase/database";
 import { realtimeDatabase } from "../../lib/firebase";
 import {
   managedWaitingRoomResponseSchema,
+  removeWaitingRoomParticipantRequestSchema,
   type ManagedWaitingRoom,
+  type RemoveWaitingRoomParticipantRequest,
 } from "../../shared/participant";
 import {
   apiErrorResponseSchema,
@@ -107,6 +109,45 @@ export async function getManagedWaitingRoom(
     throw new WaitingRoomRequestError(
       "invalid-response",
       "O servidor retornou dados inválidos para a sala.",
+    );
+  }
+
+  return result.data;
+}
+
+export async function removeWaitingRoomParticipant(
+  user: Pick<User, "getIdToken">,
+  input: RemoveWaitingRoomParticipantRequest,
+): Promise<ManagedWaitingRoom> {
+  const parsedInput = removeWaitingRoomParticipantRequestSchema.parse(input);
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/games", {
+    method: "PATCH",
+    headers: {
+      authorization: `Bearer ${idToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(parsedInput),
+  });
+  const payload = await readApiPayload(response);
+
+  if (!response.ok) {
+    const errorResult = apiErrorResponseSchema.safeParse(payload);
+
+    throw new WaitingRoomRequestError(
+      errorResult.success ? errorResult.data.error.code : "request-failed",
+      errorResult.success
+        ? errorResult.data.error.message
+        : "Não foi possível remover o participante. Tente novamente.",
+    );
+  }
+
+  const result = managedWaitingRoomResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos após remover o participante.",
     );
   }
 

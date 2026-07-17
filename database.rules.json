@@ -16,6 +16,10 @@
           "$participantId": {
             ".read": false,
             ".write": false,
+            "moderationStatus": {
+              ".read": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous'",
+              ".write": false
+            },
             "presence": {
               ".read": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous'",
               ".write": false,
