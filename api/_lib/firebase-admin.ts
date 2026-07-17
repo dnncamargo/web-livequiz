@@ -26,6 +26,33 @@ export interface FirebaseAdminServices {
     publicRoom: Record<string, unknown>,
   ) => Promise<void>;
   removeWaitingRoom: (gameId: string) => Promise<void>;
+  registerParticipant: (
+    gameId: string,
+    participantId: string,
+    nickname: string,
+    joinedAt: number,
+  ) => Promise<ParticipantRegistrationResult>;
+  getParticipant: (
+    gameId: string,
+    participantId: string,
+  ) => Promise<unknown | null>;
+  publishParticipantCount: (
+    gameId: string,
+    participantCount: number,
+  ) => Promise<void>;
+}
+
+export type ParticipantRegistrationOutcome =
+  | "joined"
+  | "restored"
+  | "room-not-found"
+  | "room-not-waiting"
+  | "nickname-taken";
+
+export interface ParticipantRegistrationResult {
+  outcome: ParticipantRegistrationOutcome;
+  participant: unknown | null;
+  participantCount: number;
 }
 
 export type FirebaseAdminConfigurationErrorCode =
@@ -44,6 +71,27 @@ export class FirebaseAdminConfigurationError extends Error {
 }
 
 let cachedServices: FirebaseAdminServices | null = null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeNicknameForComparison(nickname: string): string {
+  return nickname.normalize("NFKC").toLocaleLowerCase("pt-BR");
+}
+
+function countRegisteredParticipants(value: unknown): number {
+  if (!isRecord(value)) {
+    return 0;
+  }
+
+  return Object.values(value).filter(
+    (participant) =>
+      isRecord(participant) &&
+      (participant.moderationStatus === "waiting-approval" ||
+        participant.moderationStatus === "approved"),
+  ).length;
+}
 
 function getAdministratorEnvironment() {
   const result = administratorEnvironmentSchema.safeParse(process.env);
@@ -140,6 +188,95 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         [`liveGames/${gameId}`]: null,
         [`publicGames/${gameId}`]: null,
       });
+    },
+    registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
+      let outcome: ParticipantRegistrationOutcome = "room-not-found";
+      const gameReference = database.ref(`liveGames/${gameId}`);
+      const result = await gameReference.transaction(
+        (currentValue: unknown) => {
+          if (!isRecord(currentValue)) {
+            outcome = "room-not-found";
+            return undefined;
+          }
+
+          if (currentValue.phase !== "waiting") {
+            outcome = "room-not-waiting";
+            return undefined;
+          }
+
+          const participants = isRecord(currentValue.participants)
+            ? currentValue.participants
+            : {};
+          const existingParticipant = participants[participantId];
+
+          if (isRecord(existingParticipant)) {
+            outcome = "restored";
+            return currentValue;
+          }
+
+          const normalizedNickname = normalizeNicknameForComparison(nickname);
+          const duplicateNickname = Object.entries(participants).some(
+            ([candidateId, candidate]) =>
+              candidateId !== participantId &&
+              isRecord(candidate) &&
+              candidate.moderationStatus !== "removed" &&
+              typeof candidate.nickname === "string" &&
+              normalizeNicknameForComparison(candidate.nickname) ===
+                normalizedNickname,
+          );
+
+          if (duplicateNickname) {
+            outcome = "nickname-taken";
+            return undefined;
+          }
+
+          outcome = "joined";
+
+          return {
+            ...currentValue,
+            participants: {
+              ...participants,
+              [participantId]: {
+                nickname,
+                moderationStatus: "waiting-approval",
+                joinedAt,
+              },
+            },
+            updatedAt: joinedAt,
+          };
+        },
+        undefined,
+        false,
+      );
+
+      if (!result.committed) {
+        return { outcome, participant: null, participantCount: 0 };
+      }
+
+      const gameValue: unknown = result.snapshot.val();
+      const participants = isRecord(gameValue)
+        ? gameValue.participants
+        : undefined;
+
+      return {
+        outcome,
+        participant: isRecord(participants)
+          ? (participants[participantId] ?? null)
+          : null,
+        participantCount: countRegisteredParticipants(participants),
+      };
+    },
+    getParticipant: async (gameId, participantId) => {
+      const snapshot = await database
+        .ref(`liveGames/${gameId}/participants/${participantId}`)
+        .get();
+
+      return snapshot.exists() ? snapshot.val() : null;
+    },
+    publishParticipantCount: async (gameId, participantCount) => {
+      await database
+        .ref(`publicGames/${gameId}/participantCount`)
+        .set(participantCount);
     },
   };
 

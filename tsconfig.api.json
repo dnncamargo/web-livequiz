@@ -19,6 +19,7 @@
   "include": [
     "api",
     "src/shared/connection-diagnostics.ts",
+    "src/shared/participant.ts",
     "src/shared/waiting-room.ts"
   ]
 }

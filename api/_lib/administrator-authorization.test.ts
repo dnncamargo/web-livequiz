@@ -20,6 +20,9 @@ function createServices(): FirebaseAdminServices {
     claimWaitingRoom: vi.fn(),
     publishWaitingRoom: vi.fn(),
     removeWaitingRoom: vi.fn(),
+    registerParticipant: vi.fn(),
+    getParticipant: vi.fn(),
+    publishParticipantCount: vi.fn(),
   };
 }
 

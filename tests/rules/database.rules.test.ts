@@ -146,6 +146,20 @@ describe("regras do Realtime Database", () => {
     );
   });
 
+  it("impede que o participante altere nickname, moderação ou pontuação", async () => {
+    await seedParticipant();
+    const database = participantDatabase("participante-1");
+    const participantPath = "liveGames/sala-1/participants/participante-1";
+
+    await assertFails(
+      update(ref(database, participantPath), {
+        nickname: "Nickname adulterado",
+        moderationStatus: "approved",
+        score: 999_999,
+      }),
+    );
+  });
+
   it("rejeita campos não previstos na conexão", async () => {
     await seedParticipant();
     const database = participantDatabase("participante-1");

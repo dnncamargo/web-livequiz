@@ -18,11 +18,16 @@ implementados:
 - projeção pública separada do estado privado da partida;
 - criação segura de salas de espera pela API da Vercel;
 - código público de seis caracteres e rota administrativa recuperável após
-  atualização da página.
+  atualização da página;
+- entrada do participante com código e nickname validado pelo servidor;
+- restauração da participação após atualização da página e ativação da
+  presença somente depois do registro seguro na sala;
+- bloqueio de nicknames duplicados e publicação apenas da contagem de
+  participantes no estado público.
 
-A entrada na sala e a ativação da presença serão implementadas junto com a
-escolha de nickname. As funcionalidades de quizzes e partida serão
-implementadas nos próximos marcos definidos em `AGENTS.md`.
+A escolha de avatar e a moderação da entrada serão implementadas nos próximos
+marcos definidos em `AGENTS.md`. As funcionalidades de quizzes e partida
+continuam previstas para as etapas posteriores.
 
 ## Requisitos
 
@@ -63,12 +68,29 @@ FIREBASE_ADMIN_PROJECT_ID
 FIREBASE_ADMIN_CLIENT_EMAIL
 FIREBASE_ADMIN_PRIVATE_KEY
 FIREBASE_ADMIN_DATABASE_URL
+NODE_OPTIONS=--experimental-require-module
 ```
 
 Os três primeiros valores vêm da conta de serviço do projeto Firebase. A URL do
 banco é a URL completa da instância do Realtime Database. Ao colar a chave
 privada na Vercel, preserve o conteúdo completo, inclusive o cabeçalho e o
 rodapé.
+
+`NODE_OPTIONS` é uma configuração de runtime da função, não um segredo nem uma
+variável do frontend. Ela é necessária na Vercel para a interoperabilidade das
+dependências administrativas atuais com módulos ES. Aplique-a aos mesmos
+ambientes das variáveis `FIREBASE_ADMIN_*` e faça um novo deploy.
+
+## Entrada de participantes
+
+A função `/api/participants` aceita somente tokens de autenticação anônima do
+Firebase. Ela valida o código e o nickname, cria o registro privado em
+`liveGames/{gameId}/participants/{uid}` e atualiza apenas `participantCount` na
+projeção pública.
+
+O navegador guarda somente o código da sala ativa. Ao atualizar a página, o
+registro é consultado novamente no servidor pelo UID anônimo; nickname, status
+de moderação e pontuação não podem ser alterados diretamente pelo cliente.
 
 ## Diagnóstico de conexões
 

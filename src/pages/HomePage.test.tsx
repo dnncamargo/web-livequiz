@@ -33,6 +33,7 @@ vi.mock("../contexts/auth-context", () => ({
 
 describe("HomePage", () => {
   beforeEach(() => {
+    localStorage.clear();
     authMock.value.user = null;
     authMock.value.loading = false;
     authMock.value.isAnonymous = false;
@@ -60,7 +61,7 @@ describe("HomePage", () => {
     expect(authMock.value.signInParticipant).toHaveBeenCalledOnce();
   });
 
-  it("informa quando a sessão anônima foi restaurada", () => {
+  it("exibe a entrada da sala quando a sessão anônima foi restaurada", async () => {
     authMock.value.user = {
       uid: "participante-1",
       isAnonymous: true,
@@ -75,9 +76,8 @@ describe("HomePage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Sessão recuperável")).toBeInTheDocument();
     expect(
-      screen.getByText("Você continuará conectado ao atualizar a página."),
+      await screen.findByRole("button", { name: "Entrar na sala" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Entrar como participante" }),

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { getAuthErrorMessage } from "../features/auth/auth-errors";
+import { ParticipantJoinPanel } from "../features/participants/ParticipantJoinPanel";
 
 export function HomePage() {
   const {
@@ -88,15 +89,7 @@ export function HomePage() {
 
         {user && isAnonymous && (
           <>
-            <p>
-              Sua sessão de participante está pronta neste dispositivo. Na
-              próxima etapa você poderá escolher um nickname e um avatar.
-            </p>
-
-            <div className="session-status" role="status">
-              <strong>Sessão recuperável</strong>
-              <span>Você continuará conectado ao atualizar a página.</span>
-            </div>
+            <ParticipantJoinPanel key={user.uid} user={user} />
 
             <button
               type="button"

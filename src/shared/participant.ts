@@ -1,0 +1,65 @@
+import { z } from "zod";
+import { waitingRoomCodeSchema } from "./waiting-room.js";
+
+export const PARTICIPANT_NICKNAME_MIN_LENGTH = 2;
+export const PARTICIPANT_NICKNAME_MAX_LENGTH = 20;
+
+const normalizedNicknameSchema = z
+  .string()
+  .min(
+    PARTICIPANT_NICKNAME_MIN_LENGTH,
+    "Escolha um nickname com pelo menos dois caracteres.",
+  )
+  .max(
+    PARTICIPANT_NICKNAME_MAX_LENGTH,
+    "O nickname pode ter no máximo 20 caracteres.",
+  )
+  .regex(
+    /^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u,
+    "Use letras, números, espaços, ponto, hífen ou sublinhado.",
+  );
+
+export const participantNicknameSchema = z
+  .string()
+  .transform((nickname) => nickname.trim().replace(/\s+/g, " "))
+  .pipe(normalizedNicknameSchema);
+
+export const participantGameCodeSchema = z
+  .string()
+  .transform((gameId) => gameId.trim().toUpperCase())
+  .pipe(waitingRoomCodeSchema);
+
+export const participantModerationStatusSchema = z.enum([
+  "waiting-approval",
+  "approved",
+  "removed",
+]);
+
+export const joinParticipantRequestSchema = z
+  .object({
+    gameId: participantGameCodeSchema,
+    nickname: participantNicknameSchema,
+  })
+  .strict();
+
+export const participantSessionSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    participantId: z.string().min(1),
+    nickname: normalizedNicknameSchema,
+    moderationStatus: participantModerationStatusSchema,
+    joinedAt: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const participantSessionResponseSchema = z
+  .object({ participant: participantSessionSchema })
+  .strict();
+
+export type JoinParticipantRequest = z.infer<
+  typeof joinParticipantRequestSchema
+>;
+export type ParticipantModerationStatus = z.infer<
+  typeof participantModerationStatusSchema
+>;
+export type ParticipantSession = z.infer<typeof participantSessionSchema>;

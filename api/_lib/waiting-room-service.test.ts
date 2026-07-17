@@ -13,6 +13,9 @@ function createServices(): FirebaseAdminServices {
     claimWaitingRoom: vi.fn().mockResolvedValue(true),
     publishWaitingRoom: vi.fn().mockResolvedValue(undefined),
     removeWaitingRoom: vi.fn().mockResolvedValue(undefined),
+    registerParticipant: vi.fn(),
+    getParticipant: vi.fn(),
+    publishParticipantCount: vi.fn(),
   };
 }
 
