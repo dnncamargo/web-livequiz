@@ -231,6 +231,25 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
     registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
       let outcome: ParticipantRegistrationOutcome = "room-not-found";
       const gameReference = database.ref(`liveGames/${gameId}`);
+      const initialSnapshot = await gameReference.get();
+      const initialGame: unknown = initialSnapshot.val();
+
+      if (!isRecord(initialGame)) {
+        return {
+          outcome: "room-not-found",
+          participant: null,
+          participantCount: 0,
+        };
+      }
+
+      if (initialGame.phase !== "waiting") {
+        return {
+          outcome: "room-not-waiting",
+          participant: null,
+          participantCount: 0,
+        };
+      }
+
       const result = await gameReference.transaction(
         (currentValue: unknown) => {
           if (!isRecord(currentValue)) {

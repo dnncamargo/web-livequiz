@@ -72,6 +72,61 @@ describe("serviço de participante", () => {
     expect(services.publishParticipantCount).not.toHaveBeenCalled();
   });
 
+  it("mantém a entrada quando somente a contagem pública falha", async () => {
+    vi.mocked(services.registerParticipant).mockResolvedValue({
+      outcome: "joined",
+      participant: {
+        nickname: "Cometa",
+        moderationStatus: "waiting-approval",
+        joinedAt: 1_000,
+      },
+      participantCount: 1,
+    });
+    vi.mocked(services.publishParticipantCount).mockRejectedValue(
+      new Error("falha simulada na projeção pública"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await expect(
+      joinWaitingRoom(
+        "participante-1",
+        { gameId: "ABC234", nickname: "Cometa" },
+        services,
+        () => 1_000,
+      ),
+    ).resolves.toMatchObject({ nickname: "Cometa" });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Participante registrado, mas a contagem pública não foi atualizada:",
+      expect.any(Error),
+    );
+
+    consoleError.mockRestore();
+  });
+
+  it("retorna erro específico quando o RTDB não registra o participante", async () => {
+    vi.mocked(services.registerParticipant).mockRejectedValue(
+      new Error("falha simulada no RTDB"),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await expect(
+      joinWaitingRoom(
+        "participante-1",
+        { gameId: "ABC234", nickname: "Cometa" },
+        services,
+      ),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: "participant-registration-unavailable",
+    });
+
+    consoleError.mockRestore();
+  });
+
   it("restaura somente o registro pertencente ao UID autenticado", async () => {
     vi.mocked(services.getParticipant).mockResolvedValue({
       nickname: "Cometa",

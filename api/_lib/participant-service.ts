@@ -46,12 +46,29 @@ export async function joinWaitingRoom(
   now: () => number = Date.now,
 ): Promise<ParticipantSession> {
   const parsedInput = joinParticipantRequestSchema.parse(input);
-  const registration = await services.registerParticipant(
-    parsedInput.gameId,
-    participantId,
-    parsedInput.nickname,
-    now(),
-  );
+  let registration: Awaited<
+    ReturnType<FirebaseAdminServices["registerParticipant"]>
+  >;
+
+  try {
+    registration = await services.registerParticipant(
+      parsedInput.gameId,
+      participantId,
+      parsedInput.nickname,
+      now(),
+    );
+  } catch (error) {
+    console.error(
+      "Falha ao registrar participante no Realtime Database:",
+      error,
+    );
+
+    throw new HttpError(
+      503,
+      "participant-registration-unavailable",
+      "A sala foi localizada, mas não foi possível salvar sua participação. Tente novamente.",
+    );
+  }
 
   if (registration.outcome === "room-not-found") {
     throw new HttpError(
@@ -83,10 +100,17 @@ export async function joinWaitingRoom(
     registration.participant,
   );
 
-  await services.publishParticipantCount(
-    parsedInput.gameId,
-    registration.participantCount,
-  );
+  try {
+    await services.publishParticipantCount(
+      parsedInput.gameId,
+      registration.participantCount,
+    );
+  } catch (error) {
+    console.error(
+      "Participante registrado, mas a contagem pública não foi atualizada:",
+      error,
+    );
+  }
 
   return participant;
 }
