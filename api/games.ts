@@ -1,8 +1,3 @@
-import { authorizeAdministratorRequest } from "./_lib/administrator-authorization";
-import { getFirebaseAdminServices } from "./_lib/firebase-admin";
-import { HttpError } from "./_lib/http-error";
-import { createWaitingRoom } from "./_lib/waiting-room-service";
-
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
   return Response.json(body, {
     status,
@@ -13,51 +8,72 @@ function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
   });
 }
 
-const handler = {
-  async fetch(request: Request): Promise<Response> {
-    if (request.method !== "POST") {
-      return jsonResponse(
-        {
-          error: {
-            code: "method-not-allowed",
-            message: "Utilize POST para criar uma sala.",
-          },
-        },
-        405,
-        { allow: "POST" },
-      );
-    }
+interface HttpErrorLike extends Error {
+  status: number;
+  code: string;
+}
 
-    try {
-      const services = getFirebaseAdminServices();
-      const administrator = await authorizeAdministratorRequest(
+function isHttpError(error: unknown): error is HttpErrorLike {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number" &&
+    "code" in error &&
+    typeof error.code === "string"
+  );
+}
+
+export function GET(): Response {
+  return jsonResponse(
+    {
+      error: {
+        code: "method-not-allowed",
+        message: "Utilize POST para criar uma sala.",
+      },
+    },
+    405,
+    { allow: "POST" },
+  );
+}
+
+export async function POST(request: Request): Promise<Response> {
+  try {
+    const [authorizationModule, firebaseModule, waitingRoomModule] =
+      await Promise.all([
+        import("./_lib/administrator-authorization"),
+        import("./_lib/firebase-admin"),
+        import("./_lib/waiting-room-service"),
+      ]);
+    const services = firebaseModule.getFirebaseAdminServices();
+    const administrator =
+      await authorizationModule.authorizeAdministratorRequest(
         request,
         services,
       );
-      const room = await createWaitingRoom(administrator.uid, services);
+    const room = await waitingRoomModule.createWaitingRoom(
+      administrator.uid,
+      services,
+    );
 
-      return jsonResponse({ room }, 201);
-    } catch (error) {
-      if (error instanceof HttpError) {
-        return jsonResponse(
-          { error: { code: error.code, message: error.message } },
-          error.status,
-        );
-      }
-
-      console.error("Erro interno ao criar sala de espera:", error);
-
+    return jsonResponse({ room }, 201);
+  } catch (error) {
+    if (isHttpError(error)) {
       return jsonResponse(
-        {
-          error: {
-            code: "internal-error",
-            message: "Não foi possível criar a sala. Tente novamente.",
-          },
-        },
-        500,
+        { error: { code: error.code, message: error.message } },
+        error.status,
       );
     }
-  },
-};
 
-export default handler;
+    console.error("Erro interno ao criar sala de espera:", error);
+
+    return jsonResponse(
+      {
+        error: {
+          code: "internal-error",
+          message: "Não foi possível criar a sala. Tente novamente.",
+        },
+      },
+      500,
+    );
+  }
+}

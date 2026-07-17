@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "./_lib/http-error";
-import handler from "./games";
+import { GET, POST } from "./games";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
@@ -38,7 +38,7 @@ describe("POST /api/games", () => {
       method: "POST",
     });
 
-    const response = await handler.fetch(request);
+    const response = await POST(request);
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
@@ -56,9 +56,7 @@ describe("POST /api/games", () => {
   });
 
   it("rejeita outros métodos", async () => {
-    const response = await handler.fetch(
-      new Request("https://quizumba.example/api/games"),
-    );
+    const response = GET();
 
     expect(response.status).toBe(405);
     expect(response.headers.get("allow")).toBe("POST");
@@ -73,7 +71,7 @@ describe("POST /api/games", () => {
       ),
     );
 
-    const response = await handler.fetch(
+    const response = await POST(
       new Request("https://quizumba.example/api/games", { method: "POST" }),
     );
 
