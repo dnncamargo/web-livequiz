@@ -46,6 +46,36 @@ function getDependencies(
   };
 }
 
+async function getParticipantToken(user: ParticipantUser): Promise<string> {
+  try {
+    return await user.getIdToken();
+  } catch (error) {
+    console.error("Não foi possível obter o token do participante:", error);
+
+    throw new ParticipantSessionRequestError(
+      "participant-token-unavailable",
+      "Não foi possível validar sua sessão anônima. Atualize a página e tente novamente.",
+    );
+  }
+}
+
+async function fetchParticipant(
+  fetchImplementation: typeof fetch,
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetchImplementation(input, init);
+  } catch (error) {
+    console.error("Não foi possível acessar a API de participantes:", error);
+
+    throw new ParticipantSessionRequestError(
+      "participant-api-unreachable",
+      "Não foi possível conectar ao servidor de participantes. Verifique a conexão e tente novamente.",
+    );
+  }
+}
+
 async function readPayload(response: Response): Promise<unknown> {
   const responseText = await response.text();
 
@@ -114,16 +144,28 @@ export async function joinParticipantSession(
   providedDependencies: Partial<ParticipantSessionDependencies> = {},
 ): Promise<ParticipantSession> {
   const dependencies = getDependencies(providedDependencies);
-  const parsedInput = joinParticipantRequestSchema.parse(input);
-  const idToken = await user.getIdToken();
-  const response = await dependencies.fetch("/api/participants", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      "content-type": "application/json",
+  const inputResult = joinParticipantRequestSchema.safeParse(input);
+
+  if (!inputResult.success) {
+    throw new ParticipantSessionRequestError(
+      "invalid-participant-data",
+      inputResult.error.issues[0]?.message ?? "Revise os dados informados.",
+    );
+  }
+
+  const idToken = await getParticipantToken(user);
+  const response = await fetchParticipant(
+    dependencies.fetch,
+    "/api/participants",
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${idToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(inputResult.data),
     },
-    body: JSON.stringify(parsedInput),
-  });
+  );
   const participant = await readParticipantResponse(response);
 
   saveActiveGame(dependencies.storage, participant.gameId);
@@ -151,8 +193,9 @@ export async function restoreParticipantSession(
     return null;
   }
 
-  const idToken = await user.getIdToken();
-  const response = await dependencies.fetch(
+  const idToken = await getParticipantToken(user);
+  const response = await fetchParticipant(
+    dependencies.fetch,
     `/api/participants?gameId=${encodeURIComponent(gameId)}`,
     {
       method: "GET",

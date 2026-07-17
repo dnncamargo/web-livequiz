@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   joinParticipantSession,
+  ParticipantSessionRequestError,
   restoreParticipantSession,
 } from "./participant-session";
 
@@ -96,5 +97,39 @@ describe("sessão do participante", () => {
       restoreParticipantSession(user, { fetch: fetchMock, storage }),
     ).resolves.toBeNull();
     expect(storage.removeItem).toHaveBeenCalledWith("quizumba.activeGameId");
+  });
+
+  it("distingue falha ao obter o token anônimo", async () => {
+    user.getIdToken.mockRejectedValue(new Error("token indisponível"));
+
+    await expect(
+      joinParticipantSession(
+        user,
+        { gameId: "ABC234", nickname: "Cometa" },
+        { fetch: vi.fn(), storage: createStorage() },
+      ),
+    ).rejects.toEqual(
+      new ParticipantSessionRequestError(
+        "participant-token-unavailable",
+        "Não foi possível validar sua sessão anônima. Atualize a página e tente novamente.",
+      ),
+    );
+  });
+
+  it("distingue falha de conexão com a API de participantes", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("falha de rede"));
+
+    await expect(
+      joinParticipantSession(
+        user,
+        { gameId: "ABC234", nickname: "Cometa" },
+        { fetch: fetchMock, storage: createStorage() },
+      ),
+    ).rejects.toEqual(
+      new ParticipantSessionRequestError(
+        "participant-api-unreachable",
+        "Não foi possível conectar ao servidor de participantes. Verifique a conexão e tente novamente.",
+      ),
+    );
   });
 });

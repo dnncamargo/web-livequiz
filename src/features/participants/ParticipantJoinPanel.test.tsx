@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import type { User } from "firebase/auth";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ParticipantJoinPanel } from "./ParticipantJoinPanel";
+import { ParticipantSessionRequestError } from "./participant-session";
 
 const joinPanelMocks = vi.hoisted(() => ({
   joinParticipantSession: vi.fn(),
@@ -94,6 +95,30 @@ describe("ParticipantJoinPanel", () => {
 
     expect(await screen.findByLabelText("Código da sala")).toHaveValue(
       "ABC234",
+    );
+  });
+
+  it("apresenta a referência específica da falha de entrada", async () => {
+    const browserUser = userEvent.setup();
+    joinPanelMocks.joinParticipantSession.mockRejectedValue(
+      new ParticipantSessionRequestError(
+        "participant-api-unreachable",
+        "Não foi possível conectar ao servidor de participantes.",
+      ),
+    );
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    await browserUser.type(
+      await screen.findByLabelText("Código da sala"),
+      "ABC234",
+    );
+    await browserUser.type(screen.getByLabelText("Seu nickname"), "Cometa");
+    await browserUser.click(
+      screen.getByRole("button", { name: "Entrar na sala" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Referência: participant-api-unreachable",
     );
   });
 });

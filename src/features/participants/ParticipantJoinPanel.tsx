@@ -20,6 +20,20 @@ interface ParticipantJoinPanelProps {
   initialGameId?: string;
 }
 
+interface ParticipantRequestFailure {
+  code: string;
+  message: string;
+}
+
+function getParticipantRequestFailure(
+  error: unknown,
+  fallbackMessage: string,
+): ParticipantRequestFailure {
+  return error instanceof ParticipantSessionRequestError
+    ? { code: error.code, message: error.message }
+    : { code: "unexpected-client-error", message: fallbackMessage };
+}
+
 const MODERATION_STATUS_LABELS = {
   "waiting-approval": "Aguardando aprovação",
   approved: "Entrada aprovada",
@@ -43,7 +57,8 @@ export function ParticipantJoinPanel({
     null,
   );
   const [restoring, setRestoring] = useState(true);
-  const [requestError, setRequestError] = useState("");
+  const [requestFailure, setRequestFailure] =
+    useState<ParticipantRequestFailure | null>(null);
   const activePresenceGameId =
     participant?.moderationStatus === "removed" ? null : participant?.gameId;
   const presence = useParticipantPresence(activePresenceGameId ?? null);
@@ -69,10 +84,11 @@ export function ParticipantJoinPanel({
         console.error("Erro ao restaurar participação:", error);
 
         if (active) {
-          setRequestError(
-            error instanceof ParticipantSessionRequestError
-              ? error.message
-              : "Não foi possível recuperar sua participação.",
+          setRequestFailure(
+            getParticipantRequestFailure(
+              error,
+              "Não foi possível recuperar sua participação.",
+            ),
           );
         }
       })
@@ -88,17 +104,18 @@ export function ParticipantJoinPanel({
   }, [user]);
 
   const submitParticipant = handleSubmit(async (input) => {
-    setRequestError("");
+    setRequestFailure(null);
 
     try {
       const joinedParticipant = await joinParticipantSession(user, input);
       setParticipant(joinedParticipant);
     } catch (error) {
       console.error("Erro ao entrar na sala:", error);
-      setRequestError(
-        error instanceof ParticipantSessionRequestError
-          ? error.message
-          : "Não foi possível concluir sua entrada. Tente novamente.",
+      setRequestFailure(
+        getParticipantRequestFailure(
+          error,
+          "Não foi possível concluir sua entrada. Tente novamente.",
+        ),
       );
     }
   });
@@ -201,10 +218,11 @@ export function ParticipantJoinPanel({
         </button>
       </form>
 
-      {requestError && (
+      {requestFailure && (
         <div className="test-result test-result-error" role="alert">
           <strong>Não foi possível entrar</strong>
-          <p>{requestError}</p>
+          <p>{requestFailure.message}</p>
+          <small>Referência: {requestFailure.code}</small>
         </div>
       )}
     </div>

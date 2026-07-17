@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { ManagedWaitingRoom } from "../../shared/participant";
 import { getManagedWaitingRoom, WaitingRoomRequestError } from "./waiting-room";
 
-const REFRESH_INTERVAL_MS = 3_000;
+const REFRESH_INTERVAL_MS = 10_000;
 
 interface ManagedWaitingRoomState {
   waitingRoom: ManagedWaitingRoom | null;
@@ -65,7 +65,7 @@ export function useManagedWaitingRoom(
               : "Não foi possível consultar a sala de espera.",
         });
       } finally {
-        if (active) {
+        if (active && gameId) {
           refreshTimer = setTimeout(() => void refresh(), REFRESH_INTERVAL_MS);
         }
       }
