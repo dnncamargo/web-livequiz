@@ -42,6 +42,12 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+button:focus-visible,
+a:focus-visible {
+  outline: 4px solid #ffe25b;
+  outline-offset: 4px;
+}
+
 a {
   color: #ffe25b;
   font-weight: 700;
@@ -105,6 +111,37 @@ a:hover {
   background: rgb(255 255 255 / 10%);
 }
 
+.primary-button,
+.secondary-button {
+  min-height: 52px;
+  padding: 14px 24px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.primary-button {
+  border: 2px solid #ffe25b;
+  color: #21153d;
+  background: #ffe25b;
+  box-shadow: 0 8px 0 #b99300;
+}
+
+.primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.primary-button:active:not(:disabled) {
+  box-shadow: 0 4px 0 #b99300;
+  transform: translateY(4px);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @media (max-width: 600px) {
   .page {
     padding: 16px;
@@ -121,24 +158,14 @@ a:hover {
 }
 
 .secondary-button {
-  min-height: 48px;
   margin-top: 20px;
-  padding: 12px 22px;
   border: 1px solid rgb(255 255 255 / 22%);
-  border-radius: 999px;
   color: #ffffff;
   background: rgb(255 255 255 / 8%);
-  cursor: pointer;
-  font-weight: 800;
 }
 
 .secondary-button:hover:not(:disabled) {
   background: rgb(255 255 255 / 14%);
-}
-
-.secondary-button:disabled {
-  cursor: wait;
-  opacity: 0.6;
 }
 
 .auth-diagnostic {
@@ -164,4 +191,48 @@ a:hover {
 .auth-diagnostic code {
   overflow-wrap: anywhere;
   color: #ffe25b;
+}
+
+.session-status {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 520px);
+  margin: 24px auto;
+  padding: 18px;
+  border: 1px solid rgb(255 226 91 / 45%);
+  border-radius: 16px;
+  color: #ffffff;
+  background: rgb(255 226 91 / 10%);
+}
+
+.session-status span {
+  color: rgb(255 255 255 / 76%);
+}
+
+.test-result {
+  margin: 24px auto;
+  padding: 18px;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.test-result p {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.test-result-error {
+  border: 1px solid #ff8ca9;
+  background: rgb(157 24 67 / 35%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

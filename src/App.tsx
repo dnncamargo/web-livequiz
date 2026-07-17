@@ -11,19 +11,17 @@ export function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
 
-      <Route
-        path="/apresentacao"
-        element={<PresentationPage />}
-      />
+      <Route path="/apresentacao" element={<PresentationPage />} />
 
-      <Route
-        path="/login"
-        element={<AdminLoginPage />}
-      />
+      <Route path="/login" element={<AdminLoginPage />} />
 
       <Route
         path="/firebase-test"
-        element={<FirebaseTestPage />}
+        element={
+          <RequireAdministrator>
+            <FirebaseTestPage />
+          </RequireAdministrator>
+        }
       />
 
       <Route

@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build:modern": "tsc -b && vite build",
-    "build:legacy": "vite build --config vite.legacy.config.ts",
-    "build": "npm run build:modern && npm run build:legacy",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:run": "vitest run",
+    "test:rules": "node scripts/run-database-rules-tests.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -40,6 +42,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
+    "firebase-tools": "^15.24.0",
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.5",
@@ -48,22 +51,7 @@
     "vite": "^8.1.1",
     "vitest": "^4.1.10"
   },
-    "engines": {
-    "node": ">=22"
-  },
-   "rules": {
-    "publicGames": {
-      "$gameId": {
-        ".read": true,
-        ".write": false
-      }
-    },
-
-    "liveGames": {
-      "$gameId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    }
+  "engines": {
+    "node": "22.x"
   }
 }

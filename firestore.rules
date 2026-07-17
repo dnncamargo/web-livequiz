@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedInWithGoogle() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function administratorPath() {
+      return /databases/$(database)/documents/administrators/$(request.auth.uid);
+    }
+
+    function isActiveAdministrator() {
+      return isSignedInWithGoogle()
+        && exists(administratorPath())
+        && get(administratorPath()).data.active == true;
+    }
+
+    match /administrators/{administratorId} {
+      allow get: if isSignedInWithGoogle()
+        && request.auth.uid == administratorId;
+      allow list, create, update, delete: if false;
+    }
+
+    match /connectionTests/{testId} {
+      allow read, write: if isActiveAdministrator();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

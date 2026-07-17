@@ -77,9 +77,7 @@ export function FirebaseTestPage() {
 
       setStatus("error");
       setFeedback(
-        error instanceof Error
-          ? error.message
-          : "Ocorreu um erro desconhecido ao acessar o Firebase.",
+        "Não foi possível concluir o diagnóstico do Firebase. Tente novamente.",
       );
     }
   }
@@ -119,7 +117,7 @@ export function FirebaseTestPage() {
         )}
 
         {status === "error" && (
-          <div className="test-result test-result-error">
+          <div className="test-result test-result-error" role="alert">
             <strong>Falha na conexão</strong>
             <p>Consulte também o console do navegador.</p>
           </div>

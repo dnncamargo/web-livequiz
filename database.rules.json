@@ -1,0 +1,52 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "publicGames": {
+      "$gameId": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "liveGames": {
+      "$gameId": {
+        ".read": false,
+        ".write": false,
+        "participants": {
+          "$participantId": {
+            ".read": false,
+            ".write": false,
+            "presence": {
+              ".read": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous'",
+              ".write": false,
+              "connections": {
+                "$connectionId": {
+                  ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && ($connectionId.matches(/^[A-Za-z0-9_-]{20}$/)) && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
+                  ".validate": "!newData.exists() || newData.hasChildren(['connectedAt', 'lastSeenAt'])",
+                  "connectedAt": {
+                    ".validate": "newData.isNumber() && ((!data.exists() && newData.val() <= now && newData.val() >= now - 60000) || (data.exists() && newData.val() === data.val()))"
+                  },
+                  "lastSeenAt": {
+                    ".validate": "newData.isNumber() && newData.val() <= now && newData.val() >= now - 60000"
+                  },
+                  "$other": {
+                    ".validate": false
+                  }
+                }
+              },
+              "lastDisconnectedAt": {
+                ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
+                ".validate": "newData.isNumber() && newData.val() <= now && newData.val() >= now - 60000"
+              },
+              "$other": {
+                ".read": false,
+                ".write": false,
+                ".validate": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

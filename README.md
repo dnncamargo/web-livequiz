@@ -1,73 +1,116 @@
-# React + TypeScript + Vite
+# Quizumba
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação web de quiz competitivo em tempo real para ambientes educacionais.
 
-Currently, two official plugins are available:
+## Estado atual
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Os marcos iniciais de identidade, acesso e conexão em tempo real estão
+implementados:
 
-## React Compiler
+- autenticação anônima persistente para participantes;
+- autenticação administrativa com Google;
+- autorização administrativa por perfil ativo no Firestore;
+- proteção das rotas de gestão com negação por padrão;
+- inicialização do Realtime Database pela configuração `VITE_*`;
+- contratos compartilhados de fases, cronômetro e presença;
+- presença por aba com `onDisconnect`, heartbeat e tolerância a desconexões
+  breves;
+- projeção pública separada do estado privado da partida.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+A presença está preparada para ser ativada pela sala de espera, que será
+responsável por criar o registro privado do participante antes da conexão. As
+funcionalidades de sala, quizzes e partida serão implementadas nos próximos
+marcos definidos em `AGENTS.md`.
 
-## Expanding the ESLint configuration
+## Requisitos
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 22 ou superior;
+- projeto Firebase com Authentication, Firestore e Realtime Database;
+- provedores **Anônimo** e **Google** habilitados no Firebase Authentication.
 
-```js
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
+Para executar os testes locais das regras do Realtime Database também é
+necessário ter um Java Runtime 21 ou superior disponível no `PATH`.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Configuração local
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+Copie `.env.example` para `.env.local` e preencha apenas a configuração web
+pública do Firebase. Nunca use service account, chave privada ou credencial
+administrativa no frontend.
+
+```text
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+VITE_FIREBASE_DATABASE_URL
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Cadastrar um administrador
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
+1. Entre uma vez com a conta Google para que ela apareça no Firebase
+   Authentication.
+2. Consulte o UID da conta no console do Firebase.
+3. No Firestore, crie manualmente o documento `administrators/{uid}`.
+4. Adicione os campos:
 
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```json
+{
+  "active": true,
+  "email": "administrador@example.com"
+}
 ```
+
+O campo `email` é opcional, mas, quando informado, deve corresponder ao e-mail
+da conta Google. Para revogar o acesso, altere `active` para `false` ou remova o
+documento.
+
+As regras não permitem criar, alterar ou excluir esse perfil pelo navegador.
+Faça o provisionamento pelo console do Firebase ou por um ambiente
+administrativo confiável.
+
+## Regras Firebase
+
+Os arquivos `firestore.rules`, `database.rules.json` e `storage.rules` usam
+negação por padrão. No Firestore, apenas uma conta Google pode ler o próprio
+perfil administrativo, e somente administradores ativos acessam a coleção
+temporária `connectionTests`.
+
+No Realtime Database:
+
+- `publicGames/{gameId}` permite somente leitura pública e nunca recebe dados
+  administrativos, respostas individuais ou a alternativa correta antes da
+  revelação;
+- `liveGames/{gameId}` permanece privado;
+- um participante anônimo pode manter apenas as próprias conexões e somente
+  depois que seu registro tiver sido criado na partida;
+- a identificação de cada aba impede que uma desconexão remova a presença das
+  demais abas.
+
+As regras administrativas do estado privado continuam fechadas até existir um
+controlador confiável ou custom claims. Conceder escrita a qualquer conta Google
+não é uma alternativa segura.
+
+Com a Firebase CLI autenticada no projeto correto, publique as regras com:
+
+```bash
+firebase deploy --only firestore:rules,database,storage
+```
+
+## Scripts
+
+```bash
+npm run dev
+npm run format
+npm run lint
+npm run test:run
+npm run test:rules
+npm run build
+```
+
+`npm run test:rules` inicia somente o emulador local do Realtime Database com o
+projeto fictício `demo-quizumba`; ele não acessa nem altera o banco de produção.
+
+O deploy da aplicação web é feito pela Vercel. As regras e serviços de dados
+continuam sendo gerenciados pelo Firebase.

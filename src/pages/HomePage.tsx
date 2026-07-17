@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth-context";
+import { getAuthErrorMessage } from "../features/auth/auth-errors";
 
 export function HomePage() {
   const {
     user,
     loading,
     isAnonymous,
+    isAdministrator,
+    authErrorMessage,
     signInParticipant,
     logout,
   } = useAuth();
@@ -23,11 +26,7 @@ export function HomePage() {
     } catch (error) {
       console.error("Erro na autenticação anônima:", error);
 
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível iniciar sua participação.",
-      );
+      setErrorMessage(getAuthErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -43,9 +42,10 @@ export function HomePage() {
       console.error("Erro ao encerrar sessão:", error);
 
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível encerrar a sessão.",
+        getAuthErrorMessage(
+          error,
+          "Não foi possível encerrar a sessão. Tente novamente.",
+        ),
       );
     } finally {
       setSubmitting(false);
@@ -54,10 +54,11 @@ export function HomePage() {
 
   if (loading) {
     return (
-      <main className="page">
-        <section className="card hero">
+      <main className="page" aria-busy="true">
+        <section className="card hero" role="status" aria-live="polite">
           <span className="eyebrow">Quizumba</span>
           <h1>Carregando...</h1>
+          <p>Restaurando sua sessão neste dispositivo.</p>
         </section>
       </main>
     );
@@ -72,9 +73,7 @@ export function HomePage() {
 
         {!user && (
           <>
-            <p>
-              Entre como participante para aguardar uma partida.
-            </p>
+            <p>Entre como participante para aguardar uma partida.</p>
 
             <button
               type="button"
@@ -82,9 +81,7 @@ export function HomePage() {
               disabled={submitting}
               onClick={handleParticipantLogin}
             >
-              {submitting
-                ? "Entrando..."
-                : "Entrar como participante"}
+              {submitting ? "Entrando..." : "Entrar como participante"}
             </button>
           </>
         )}
@@ -92,13 +89,13 @@ export function HomePage() {
         {user && isAnonymous && (
           <>
             <p>
-              Participante conectado. Na próxima etapa você poderá
-              escolher um nickname e um avatar.
+              Sua sessão de participante está pronta neste dispositivo. Na
+              próxima etapa você poderá escolher um nickname e um avatar.
             </p>
 
-            <div className="auth-diagnostic">
-              <span>Identificador temporário</span>
-              <code>{user.uid}</code>
+            <div className="session-status" role="status">
+              <strong>Sessão recuperável</strong>
+              <span>Você continuará conectado ao atualizar a página.</span>
             </div>
 
             <button
@@ -112,25 +109,19 @@ export function HomePage() {
           </>
         )}
 
-        {user && !isAnonymous && (
+        {user && !isAnonymous && isAdministrator && (
           <>
-            <p>
-              Você está conectado como administrador.
-            </p>
+            <p>Você está conectado como administrador.</p>
 
             <div className="auth-diagnostic">
               <span>Conta</span>
               <strong>
-                {user.displayName ??
-                  user.email ??
-                  "Administrador"}
+                {user.displayName ?? user.email ?? "Administrador"}
               </strong>
             </div>
 
             <nav className="navigation">
-              <Link to="/gerenciar">
-                Abrir gerenciamento
-              </Link>
+              <Link to="/gerenciar">Abrir gerenciamento</Link>
             </nav>
 
             <button
@@ -144,21 +135,35 @@ export function HomePage() {
           </>
         )}
 
-        {errorMessage && (
-          <div className="test-result test-result-error">
+        {user && !isAnonymous && !isAdministrator && (
+          <>
+            <p>
+              Sua conta Google está conectada, mas ainda não está autorizada
+              para administrar o Quizumba.
+            </p>
+
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={submitting}
+              onClick={handleLogout}
+            >
+              Sair
+            </button>
+          </>
+        )}
+
+        {(errorMessage || authErrorMessage) && (
+          <div className="test-result test-result-error" role="alert">
             <strong>Falha na autenticação</strong>
-            <p>{errorMessage}</p>
+            <p>{errorMessage || authErrorMessage}</p>
           </div>
         )}
 
         <nav className="navigation">
-          <Link to="/apresentacao">
-            Abrir apresentação
-          </Link>
+          <Link to="/apresentacao">Abrir apresentação</Link>
 
-          <Link to="/login">
-            Administração
-          </Link>
+          <Link to="/login">Administração</Link>
         </nav>
       </section>
     </main>
