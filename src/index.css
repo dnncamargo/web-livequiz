@@ -119,3 +119,49 @@ a:hover {
     flex-direction: column;
   }
 }
+
+.secondary-button {
+  min-height: 48px;
+  margin-top: 20px;
+  padding: 12px 22px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgb(255 255 255 / 8%);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 14%);
+}
+
+.secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.auth-diagnostic {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 520px);
+  margin: 24px auto;
+  padding: 18px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 6%);
+  text-align: left;
+}
+
+.auth-diagnostic span {
+  color: rgb(255 255 255 / 60%);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-diagnostic code {
+  overflow-wrap: anywhere;
+  color: #ffe25b;
+}

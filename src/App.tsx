@@ -1,4 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { RequireAdministrator } from "./components/RequireAdministrator";
+import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { FirebaseTestPage } from "./pages/FirebaseTestPage";
 import { HomePage } from "./pages/HomePage";
 import { ManagementPage } from "./pages/ManagementPage";
@@ -8,9 +10,30 @@ export function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/apresentacao" element={<PresentationPage />} />
-      <Route path="/gerenciar" element={<ManagementPage />} />
-      <Route path="/firebase-test" element={<FirebaseTestPage />} />
+
+      <Route
+        path="/apresentacao"
+        element={<PresentationPage />}
+      />
+
+      <Route
+        path="/login"
+        element={<AdminLoginPage />}
+      />
+
+      <Route
+        path="/firebase-test"
+        element={<FirebaseTestPage />}
+      />
+
+      <Route
+        path="/gerenciar"
+        element={
+          <RequireAdministrator>
+            <ManagementPage />
+          </RequireAdministrator>
+        }
+      />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

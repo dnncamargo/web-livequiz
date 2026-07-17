@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:modern": "tsc -b && vite build",
+    "build:legacy": "vite build --config vite.legacy.config.ts",
+    "build": "npm run build:modern && npm run build:legacy",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",
@@ -48,5 +50,20 @@
   },
     "engines": {
     "node": ">=22"
+  },
+   "rules": {
+    "publicGames": {
+      "$gameId": {
+        ".read": true,
+        ".write": false
+      }
+    },
+
+    "liveGames": {
+      "$gameId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
   }
 }
