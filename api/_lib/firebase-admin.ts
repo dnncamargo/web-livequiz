@@ -80,6 +80,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+export function resolveParticipantTransactionGame(
+  currentValue: unknown,
+  previouslyLoadedGame: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (isRecord(currentValue)) {
+    return currentValue;
+  }
+
+  // A transação pode começar com null antes de o cache interno receber o
+  // estado que acabou de ser consultado. O servidor fará uma nova tentativa
+  // com o valor atual caso o hash não corresponda.
+  return currentValue === null ? previouslyLoadedGame : null;
+}
+
 function normalizeNicknameForComparison(nickname: string): string {
   return nickname.normalize("NFKC").toLocaleLowerCase("pt-BR");
 }
@@ -252,24 +266,29 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
 
       const result = await gameReference.transaction(
         (currentValue: unknown) => {
-          if (!isRecord(currentValue)) {
+          const transactionGame = resolveParticipantTransactionGame(
+            currentValue,
+            initialGame,
+          );
+
+          if (!transactionGame) {
             outcome = "room-not-found";
             return undefined;
           }
 
-          if (currentValue.phase !== "waiting") {
+          if (transactionGame.phase !== "waiting") {
             outcome = "room-not-waiting";
             return undefined;
           }
 
-          const participants = isRecord(currentValue.participants)
-            ? currentValue.participants
+          const participants = isRecord(transactionGame.participants)
+            ? transactionGame.participants
             : {};
           const existingParticipant = participants[participantId];
 
           if (isRecord(existingParticipant)) {
             outcome = "restored";
-            return currentValue;
+            return transactionGame;
           }
 
           const normalizedNickname = normalizeNicknameForComparison(nickname);
@@ -291,7 +310,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           outcome = "joined";
 
           return {
-            ...currentValue,
+            ...transactionGame,
             participants: {
               ...participants,
               [participantId]: {
