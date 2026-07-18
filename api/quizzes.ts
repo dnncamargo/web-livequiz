@@ -86,18 +86,3 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(error);
   }
 }
-
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method === "GET") return GET(request);
-  if (request.method === "POST") return POST(request);
-
-  return jsonResponse(
-    {
-      error: {
-        code: "method-not-allowed",
-        message: "Utilize GET ou POST para acessar os quizzes.",
-      },
-    },
-    405,
-  );
-}

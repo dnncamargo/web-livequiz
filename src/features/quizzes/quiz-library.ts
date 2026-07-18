@@ -18,16 +18,24 @@ export class QuizLibraryRequestError extends Error {
   }
 }
 
+const QUIZ_REQUEST_TIMEOUT_MS = 15_000;
+
 async function requestQuizzes(
   user: User,
   init?: RequestInit,
 ): Promise<unknown> {
   const idToken = await user.getIdToken();
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    QUIZ_REQUEST_TIMEOUT_MS,
+  );
   let response: Response;
 
   try {
     response = await fetch("/api/quizzes", {
       ...init,
+      signal: controller.signal,
       headers: {
         authorization: `Bearer ${idToken}`,
         ...(init?.body ? { "content-type": "application/json" } : {}),
@@ -37,9 +45,15 @@ async function requestQuizzes(
   } catch (error) {
     console.error("Falha ao acessar a API de quizzes:", error);
     throw new QuizLibraryRequestError(
-      "quiz-api-unreachable",
-      "Não foi possível conectar ao servidor de quizzes.",
+      controller.signal.aborted
+        ? "quiz-request-timeout"
+        : "quiz-api-unreachable",
+      controller.signal.aborted
+        ? "O servidor de quizzes demorou demais para responder. Tente novamente."
+        : "Não foi possível conectar ao servidor de quizzes.",
     );
+  } finally {
+    globalThis.clearTimeout(timeout);
   }
 
   const payload: unknown = await response.json().catch(() => null);
