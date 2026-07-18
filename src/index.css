@@ -217,10 +217,6 @@ a:hover {
     align-items: stretch;
     flex-direction: column;
   }
-
-  .room-summary {
-    grid-template-columns: 1fr;
-  }
 }
 
 .secondary-button {
@@ -690,7 +686,7 @@ a:hover {
 
 .room-control-layout {
   display: grid;
-  grid-template-columns: minmax(460px, 1.15fr) minmax(360px, 0.85fr);
+  grid-template-columns: minmax(520px, 1.2fr) minmax(340px, 0.8fr);
   gap: 24px;
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -700,6 +696,7 @@ a:hover {
 .room-control-main,
 .room-lifecycle-card,
 .waiting-participants {
+  min-width: 0;
   width: 100%;
   margin: 0;
 }
@@ -707,6 +704,23 @@ a:hover {
 .room-control-main,
 .room-lifecycle-card {
   text-align: center;
+}
+
+.room-control-main,
+.waiting-participants {
+  padding: 28px;
+}
+
+.room-control-main > .eyebrow,
+.waiting-participants .section-heading .eyebrow {
+  font-size: clamp(0.68rem, 1vw, 0.78rem);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.room-control-main h1 {
+  margin: 10px 0;
+  font-size: clamp(2rem, 4.2vw, 4rem);
 }
 
 .room-lifecycle-card {
@@ -722,8 +736,8 @@ a:hover {
 .room-code-panel {
   display: grid;
   gap: 10px;
-  margin: 32px auto;
-  padding: clamp(20px, 5vw, 36px);
+  margin: 24px auto;
+  padding: clamp(18px, 3vw, 28px);
   border: 2px solid #ffe25b;
   border-radius: 24px;
   background: rgb(255 226 91 / 10%);
@@ -740,29 +754,32 @@ a:hover {
 
 .room-code {
   color: #ffe25b;
-  font-size: clamp(3rem, 14vw, 6.5rem);
-  letter-spacing: 0.12em;
+  font-size: clamp(2.4rem, 4.8vw, 4.25rem);
+  letter-spacing: 0.1em;
   line-height: 1;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .room-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .room-summary > div {
   display: grid;
   gap: 8px;
-  padding: 18px;
+  min-width: 0;
+  padding: 14px 8px;
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 16px;
   background: rgb(255 255 255 / 6%);
 }
 
 .room-summary strong {
-  font-size: 1.4rem;
+  font-size: clamp(1rem, 1.6vw, 1.3rem);
+  overflow-wrap: anywhere;
 }
 
 .linked-room-notice {
@@ -790,7 +807,7 @@ a:hover {
   display: grid;
   gap: 16px;
   margin: 0;
-  padding: clamp(18px, 4vw, 26px);
+  padding: 28px;
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 20px;
   background: rgb(255 255 255 / 5%);
@@ -1085,6 +1102,33 @@ a:hover {
 
   .waiting-room-page {
     padding: 16px;
+  }
+
+  .room-control-main,
+  .waiting-participants {
+    padding: 20px;
+  }
+
+  .room-code {
+    font-size: 2rem;
+  }
+
+  .room-summary {
+    gap: 6px;
+  }
+
+  .room-summary > div {
+    gap: 5px;
+    padding: 8px 4px;
+  }
+
+  .room-summary span {
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+  }
+
+  .room-summary strong {
+    font-size: 0.86rem;
   }
 
   .diagnostic-summary {
