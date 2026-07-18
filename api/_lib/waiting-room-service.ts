@@ -34,6 +34,7 @@ import {
 } from "../../src/shared/participant.js";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import { HttpError } from "./http-error.js";
+import { getOwnedQuiz } from "./quiz-service.js";
 
 const MAX_CODE_GENERATION_ATTEMPTS = 8;
 
@@ -55,6 +56,8 @@ const privateWaitingRoomSchema = z
   .object({
     ownerId: z.string().min(1),
     name: waitingRoomNameSchema.optional(),
+    quizId: z.string().min(1).max(128).optional(),
+    quizTitle: z.string().min(3).max(100).optional(),
     phase: waitingRoomPhaseSchema,
     presentationStatus: presentationStatusSchema.optional(),
     createdAt: z.number().int().nonnegative(),
@@ -66,6 +69,8 @@ const privateArchivedWaitingRoomSchema = z
   .object({
     ownerId: z.string().min(1),
     name: waitingRoomNameSchema,
+    quizId: z.string().min(1).max(128).optional(),
+    quizTitle: z.string().min(3).max(100).optional(),
     status: z.literal("archived"),
     createdAt: z.number().int().nonnegative(),
     archivedAt: z.number().int().nonnegative(),
@@ -145,6 +150,8 @@ function buildManagedWaitingRoom(
     room: {
       id: gameId,
       name: getRoomName(gameId, roomResult.data.name),
+      quizId: roomResult.data.quizId,
+      quizTitle: roomResult.data.quizTitle,
       phase: roomResult.data.phase,
       createdAt: roomResult.data.createdAt,
       participantCount: participants.filter(
@@ -181,6 +188,8 @@ function parseArchivedWaitingRoom(
   return archivedWaitingRoomSchema.parse({
     id: gameId,
     name: roomResult.data.name,
+    quizId: roomResult.data.quizId,
+    quizTitle: roomResult.data.quizTitle,
     createdAt: roomResult.data.createdAt,
     archivedAt: roomResult.data.archivedAt,
     participantCount: roomResult.data.participantCount,
@@ -194,6 +203,17 @@ export async function createWaitingRoom(
   generateCode: () => string = generateWaitingRoomCode,
 ): Promise<PublicWaitingRoom> {
   const parsedInput = createWaitingRoomRequestSchema.parse(input);
+  const associatedQuiz = parsedInput.quizId
+    ? await getOwnedQuiz(ownerId, parsedInput.quizId, services)
+    : null;
+
+  if (associatedQuiz && associatedQuiz.status !== "published") {
+    throw new HttpError(
+      409,
+      "quiz-not-published",
+      "Publique o quiz antes de associá-lo a uma sala.",
+    );
+  }
 
   for (let attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt += 1) {
     const gameId = generateCode();
@@ -206,6 +226,9 @@ export async function createWaitingRoom(
     const privateRoom = {
       ownerId,
       name: parsedInput.name,
+      ...(associatedQuiz
+        ? { quizId: associatedQuiz.id, quizTitle: associatedQuiz.title }
+        : {}),
       phase: "waiting",
       presentationStatus: "inactive",
       createdAt,
@@ -214,6 +237,9 @@ export async function createWaitingRoom(
     const publicRoom = publicWaitingRoomSchema.parse({
       id: gameId,
       name: parsedInput.name,
+      ...(associatedQuiz
+        ? { quizId: associatedQuiz.id, quizTitle: associatedQuiz.title }
+        : {}),
       phase: "waiting",
       presentationStatus: "inactive",
       createdAt,
@@ -366,6 +392,8 @@ export async function archiveWaitingRoom(
   const archivedRoom = archivedWaitingRoomSchema.parse({
     id: waitingRoom.room.id,
     name: getRoomName(waitingRoom.room.id, waitingRoom.room.name),
+    quizId: waitingRoom.room.quizId,
+    quizTitle: waitingRoom.room.quizTitle,
     createdAt: waitingRoom.room.createdAt,
     archivedAt: now(),
     participantCount: waitingRoom.room.participantCount,
@@ -374,6 +402,9 @@ export async function archiveWaitingRoom(
   await services.saveArchivedWaitingRoom(archivedRoom.id, {
     ownerId,
     name: archivedRoom.name,
+    ...(archivedRoom.quizId && archivedRoom.quizTitle
+      ? { quizId: archivedRoom.quizId, quizTitle: archivedRoom.quizTitle }
+      : {}),
     status: "archived",
     createdAt: archivedRoom.createdAt,
     archivedAt: archivedRoom.archivedAt,
@@ -439,6 +470,9 @@ export async function restoreWaitingRoom(
   const privateRoom = {
     ownerId,
     name: archivedRoom.name,
+    ...(archivedRoom.quizId && archivedRoom.quizTitle
+      ? { quizId: archivedRoom.quizId, quizTitle: archivedRoom.quizTitle }
+      : {}),
     phase: "waiting",
     presentationStatus: "inactive",
     createdAt: archivedRoom.createdAt,
@@ -448,6 +482,9 @@ export async function restoreWaitingRoom(
   const publicRoom = publicWaitingRoomSchema.parse({
     id: archivedRoom.id,
     name: archivedRoom.name,
+    ...(archivedRoom.quizId && archivedRoom.quizTitle
+      ? { quizId: archivedRoom.quizId, quizTitle: archivedRoom.quizTitle }
+      : {}),
     phase: "waiting",
     presentationStatus: "inactive",
     createdAt: archivedRoom.createdAt,

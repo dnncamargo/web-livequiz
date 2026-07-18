@@ -1,9 +1,11 @@
 import type { User } from "firebase/auth";
 import {
   createQuizRequestSchema,
+  changeQuizStatusRequestSchema,
   quizListResponseSchema,
   quizResponseSchema,
   type CreateQuizRequest,
+  type ChangeQuizStatusRequest,
   type Quiz,
 } from "../../shared/quiz";
 import { apiErrorResponseSchema } from "../../shared/waiting-room";
@@ -92,6 +94,28 @@ export async function createQuizDraft(
   const result = quizResponseSchema.safeParse(
     await requestQuizzes(user, {
       method: "POST",
+      body: JSON.stringify(parsedInput),
+    }),
+  );
+
+  if (!result.success) {
+    throw new QuizLibraryRequestError(
+      "invalid-quiz-response",
+      "O servidor retornou um quiz inválido.",
+    );
+  }
+
+  return result.data.quiz;
+}
+
+export async function changeQuizDraftStatus(
+  user: User,
+  input: ChangeQuizStatusRequest,
+): Promise<Quiz> {
+  const parsedInput = changeQuizStatusRequestSchema.parse(input);
+  const result = quizResponseSchema.safeParse(
+    await requestQuizzes(user, {
+      method: "PATCH",
       body: JSON.stringify(parsedInput),
     }),
   );

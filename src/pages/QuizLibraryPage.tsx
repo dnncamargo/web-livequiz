@@ -1,9 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { TemporaryConfirmButton } from "../components/TemporaryConfirmButton";
 import { useAuth } from "../contexts/auth-context";
 import {
   createQuizDraft,
+  changeQuizDraftStatus,
   QuizLibraryRequestError,
 } from "../features/quizzes/quiz-library";
 import { useQuizLibrary } from "../features/quizzes/use-quiz-library";
@@ -12,6 +14,7 @@ import {
   QUIZ_DESCRIPTION_MAX_LENGTH,
   QUIZ_TITLE_MAX_LENGTH,
   type CreateQuizRequest,
+  type ChangeQuizStatusRequest,
 } from "../shared/quiz";
 
 const QUIZ_STATUS_LABELS = {
@@ -25,6 +28,7 @@ export function QuizLibraryPage() {
   const [refreshRevision, setRefreshRevision] = useState(0);
   const library = useQuizLibrary(user, refreshRevision);
   const [actionError, setActionError] = useState("");
+  const [processingQuizId, setProcessingQuizId] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -53,6 +57,27 @@ export function QuizLibraryPage() {
       );
     }
   });
+
+  async function handleStatusChange(input: ChangeQuizStatusRequest) {
+    if (!user) return;
+
+    setProcessingQuizId(input.quizId);
+    setActionError("");
+
+    try {
+      await changeQuizDraftStatus(user, input);
+      setRefreshRevision((revision) => revision + 1);
+    } catch (error) {
+      console.error("Erro ao alterar estado do quiz:", error);
+      setActionError(
+        error instanceof QuizLibraryRequestError
+          ? error.message
+          : "Não foi possível alterar o estado do quiz.",
+      );
+    } finally {
+      setProcessingQuizId(null);
+    }
+  }
 
   return (
     <main className="page management-page">
@@ -145,6 +170,52 @@ export function QuizLibraryPage() {
                     <strong className="room-library-name">{quiz.title}</strong>
                     {quiz.description && <p>{quiz.description}</p>}
                     <small>{quiz.questionCount} pergunta(s)</small>
+                  </div>
+                  <div className="room-library-actions">
+                    {quiz.status === "draft" && (
+                      <button
+                        type="button"
+                        className="primary-button compact-button"
+                        disabled={processingQuizId === quiz.id}
+                        onClick={() =>
+                          void handleStatusChange({
+                            quizId: quiz.id,
+                            action: "publish-quiz",
+                          })
+                        }
+                      >
+                        Publicar
+                      </button>
+                    )}
+                    {quiz.status !== "archived" && (
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        disabled={processingQuizId === quiz.id}
+                        onClick={() =>
+                          void handleStatusChange({
+                            quizId: quiz.id,
+                            action: "archive-quiz",
+                          })
+                        }
+                      >
+                        Arquivar
+                      </button>
+                    )}
+                    {quiz.status === "archived" && (
+                      <TemporaryConfirmButton
+                        className="secondary-button compact-button"
+                        idleLabel="Restaurar"
+                        confirmLabel="Confirmar restauração?"
+                        disabled={processingQuizId === quiz.id}
+                        onConfirm={() =>
+                          handleStatusChange({
+                            quizId: quiz.id,
+                            action: "restore-quiz",
+                          })
+                        }
+                      />
+                    )}
                   </div>
                 </li>
               ))}

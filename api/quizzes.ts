@@ -1,9 +1,16 @@
 import { ZodError } from "zod";
-import { createQuizRequestSchema } from "../src/shared/quiz.js";
+import {
+  changeQuizStatusRequestSchema,
+  createQuizRequestSchema,
+} from "../src/shared/quiz.js";
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 import { HttpError } from "./_lib/http-error.js";
-import { createQuiz, listQuizzes } from "./_lib/quiz-service.js";
+import {
+  changeQuizStatus,
+  createQuiz,
+  listQuizzes,
+} from "./_lib/quiz-service.js";
 
 function jsonResponse(body: unknown, status: number) {
   return Response.json(body, {
@@ -82,6 +89,24 @@ export async function POST(request: Request): Promise<Response> {
     const quiz = await createQuiz(administrator.uid, input, services);
 
     return jsonResponse({ quiz }, 201);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request): Promise<Response> {
+  try {
+    const services = getFirebaseAdminServices();
+    const administrator = await authorizeAdministratorRequest(
+      request,
+      services,
+    );
+    const input = changeQuizStatusRequestSchema.parse(
+      await readJsonBody(request),
+    );
+    const quiz = await changeQuizStatus(administrator.uid, input, services);
+
+    return jsonResponse({ quiz }, 200);
   } catch (error) {
     return errorResponse(error);
   }

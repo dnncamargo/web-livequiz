@@ -194,6 +194,7 @@ export function WaitingRoomPage() {
         <section className="card waiting-room-card room-control-main">
           <span className="eyebrow">Gerenciamento da sala</span>
           <h1>{room.name ?? `Sala ${room.id}`}</h1>
+          {room.quizTitle && <p>Quiz associado: {room.quizTitle}</p>}
 
           <div className="room-code-panel">
             <span>Código da sala</span>

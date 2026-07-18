@@ -21,6 +21,8 @@ function createServices(): FirebaseAdminServices {
     checkRealtimeDatabaseConnection: vi.fn(),
     createQuiz: vi.fn(),
     findQuizzes: vi.fn(),
+    getQuiz: vi.fn(),
+    updateQuizStatus: vi.fn(),
     claimWaitingRoom: vi.fn().mockResolvedValue(true),
     publishWaitingRoom: vi.fn().mockResolvedValue(undefined),
     removeWaitingRoom: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +74,35 @@ describe("serviço de sala de espera", () => {
     expect(services.publishWaitingRoom).toHaveBeenCalledWith(
       "ABC234",
       expect.not.objectContaining({ ownerId: expect.anything() }),
+    );
+  });
+
+  it("associa somente um quiz publicado pertencente ao administrador", async () => {
+    const services = createServices();
+    vi.mocked(services.getQuiz).mockResolvedValue({
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "published",
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 2_000,
+    });
+
+    const room = await createWaitingRoom(
+      "administrador-1",
+      { name: "Turma 8A", quizId: "quiz-1" },
+      services,
+      () => "ABC234",
+    );
+
+    expect(room).toMatchObject({
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+    });
+    expect(services.claimWaitingRoom).toHaveBeenCalledWith(
+      "ABC234",
+      expect.objectContaining({ quizId: "quiz-1", quizTitle: "Ciências" }),
     );
   });
 

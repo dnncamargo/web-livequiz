@@ -9,6 +9,8 @@ function createServices(decodedToken: unknown): FirebaseAdminServices {
     checkRealtimeDatabaseConnection: vi.fn(),
     createQuiz: vi.fn(),
     findQuizzes: vi.fn(),
+    getQuiz: vi.fn(),
+    updateQuizStatus: vi.fn(),
     claimWaitingRoom: vi.fn(),
     publishWaitingRoom: vi.fn(),
     removeWaitingRoom: vi.fn(),

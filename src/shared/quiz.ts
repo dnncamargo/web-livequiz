@@ -9,6 +9,9 @@ export type QuestionType = z.infer<typeof questionTypeSchema>;
 
 export const quizStatusSchema = z.enum(["draft", "published", "archived"]);
 export type QuizStatus = z.infer<typeof quizStatusSchema>;
+export const quizIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,128}$/, "O identificador do quiz é inválido.");
 
 export const quizOptionSchema = z.object({
   id: z.string().min(1).max(128),
@@ -69,7 +72,7 @@ export const createQuizRequestSchema = z.object({
 export type CreateQuizRequest = z.infer<typeof createQuizRequestSchema>;
 
 export const quizSchema = z.object({
-  id: z.string().min(1).max(128),
+  id: quizIdSchema,
   ownerId: z.string().min(1),
   title: createQuizRequestSchema.shape.title,
   description: createQuizRequestSchema.shape.description,
@@ -84,3 +87,13 @@ export const quizResponseSchema = z.object({ quiz: quizSchema });
 export const quizListResponseSchema = z.object({
   quizzes: z.array(quizSchema),
 });
+
+export const changeQuizStatusRequestSchema = z
+  .object({
+    quizId: quizIdSchema,
+    action: z.enum(["publish-quiz", "archive-quiz", "restore-quiz"]),
+  })
+  .strict();
+export type ChangeQuizStatusRequest = z.infer<
+  typeof changeQuizStatusRequestSchema
+>;

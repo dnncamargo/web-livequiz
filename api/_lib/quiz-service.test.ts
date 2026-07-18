@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
-import { createQuiz, listQuizzes } from "./quiz-service.js";
+import { changeQuizStatus, createQuiz, listQuizzes } from "./quiz-service.js";
 
 function createServices(): Pick<
   FirebaseAdminServices,
-  "createQuiz" | "findQuizzes"
+  "createQuiz" | "findQuizzes" | "getQuiz" | "updateQuizStatus"
 > {
-  return { createQuiz: vi.fn(), findQuizzes: vi.fn() };
+  return {
+    createQuiz: vi.fn(),
+    findQuizzes: vi.fn(),
+    getQuiz: vi.fn(),
+    updateQuizStatus: vi.fn(),
+  };
 }
 
 describe("serviço de quizzes", () => {
@@ -65,5 +70,32 @@ describe("serviço de quizzes", () => {
     );
 
     expect(quizzes.map(({ id }) => id)).toEqual(["novo", "antigo"]);
+  });
+
+  it("publica um rascunho pertencente ao administrador", async () => {
+    const draft = {
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "draft",
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 1_000,
+    } as const;
+    vi.mocked(services.getQuiz).mockResolvedValue(draft);
+    vi.mocked(services.updateQuizStatus).mockResolvedValue({
+      ...draft,
+      status: "published",
+      updatedAt: 2_000,
+    });
+
+    await expect(
+      changeQuizStatus(
+        "administrador-1",
+        { quizId: "quiz-1", action: "publish-quiz" },
+        services as FirebaseAdminServices,
+        () => 2_000,
+      ),
+    ).resolves.toMatchObject({ id: "quiz-1", status: "published" });
   });
 });

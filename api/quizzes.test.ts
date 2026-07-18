@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GET, POST } from "./quizzes.js";
+import { GET, PATCH, POST } from "./quizzes.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
   authorizeAdministratorRequest: vi.fn(),
   createQuiz: vi.fn(),
+  changeQuizStatus: vi.fn(),
   listQuizzes: vi.fn(),
 }));
 
@@ -17,6 +18,7 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 }));
 
 vi.mock("./_lib/quiz-service.js", () => ({
+  changeQuizStatus: apiMocks.changeQuizStatus,
   createQuiz: apiMocks.createQuiz,
   listQuizzes: apiMocks.listQuizzes,
 }));
@@ -38,6 +40,9 @@ describe("/api/quizzes", () => {
       .mockReset()
       .mockResolvedValue({ uid: "administrador-1" });
     apiMocks.createQuiz.mockReset().mockResolvedValue(quiz);
+    apiMocks.changeQuizStatus
+      .mockReset()
+      .mockResolvedValue({ ...quiz, status: "published" });
     apiMocks.listQuizzes.mockReset().mockResolvedValue([quiz]);
   });
 
@@ -68,6 +73,23 @@ describe("/api/quizzes", () => {
     await expect(response.json()).resolves.toEqual({ quizzes: [quiz] });
     expect(apiMocks.listQuizzes).toHaveBeenCalledWith(
       "administrador-1",
+      apiMocks.services,
+    );
+  });
+
+  it("altera o estado do quiz", async () => {
+    const response = await PATCH(
+      new Request("https://quizumba.example/api/quizzes", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quizId: "quiz-1", action: "publish-quiz" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(apiMocks.changeQuizStatus).toHaveBeenCalledWith(
+      "administrador-1",
+      { quizId: "quiz-1", action: "publish-quiz" },
       apiMocks.services,
     );
   });

@@ -31,6 +31,12 @@ export interface FirebaseAdminServices {
   findQuizzes: (
     ownerId: string,
   ) => Promise<Array<{ quizId: string; quiz: unknown }>>;
+  getQuiz: (quizId: string) => Promise<unknown | null>;
+  updateQuizStatus: (
+    quizId: string,
+    status: "draft" | "published" | "archived",
+    updatedAt: number,
+  ) => Promise<unknown | null>;
   claimWaitingRoom: (
     gameId: string,
     privateRoom: Record<string, unknown>,
@@ -282,6 +288,18 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         quizId: document.id,
         quiz: document.data(),
       }));
+    },
+    getQuiz: async (quizId) => {
+      const snapshot = await firestore.doc(`quizzes/${quizId}`).get();
+
+      return snapshot.exists ? snapshot.data() : null;
+    },
+    updateQuizStatus: async (quizId, status, updatedAt) => {
+      const quizReference = firestore.doc(`quizzes/${quizId}`);
+      await quizReference.update({ status, updatedAt });
+      const snapshot = await quizReference.get();
+
+      return snapshot.exists ? snapshot.data() : null;
     },
     claimWaitingRoom: async (gameId, privateRoom) => {
       const result = await database

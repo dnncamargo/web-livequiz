@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { participantAvatarSchema } from "./avatar.js";
+import { quizIdSchema } from "./quiz.js";
 
 export const WAITING_ROOM_CODE_LENGTH = 6;
 export const WAITING_ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -43,6 +44,8 @@ export const publicWaitingRoomSchema = z
   .object({
     id: waitingRoomCodeSchema,
     name: normalizedWaitingRoomNameSchema.optional(),
+    quizId: quizIdSchema.optional(),
+    quizTitle: z.string().min(3).max(100).optional(),
     phase: waitingRoomPhaseSchema,
     presentationStatus: presentationStatusSchema.optional(),
     createdAt: z.number().int().nonnegative(),
@@ -52,7 +55,7 @@ export const publicWaitingRoomSchema = z
   .strict();
 
 export const createWaitingRoomRequestSchema = z
-  .object({ name: waitingRoomNameSchema })
+  .object({ name: waitingRoomNameSchema, quizId: quizIdSchema.optional() })
   .strict();
 
 export const createWaitingRoomResponseSchema = z
@@ -67,6 +70,8 @@ export const archivedWaitingRoomSchema = z
   .object({
     id: waitingRoomCodeSchema,
     name: normalizedWaitingRoomNameSchema,
+    quizId: quizIdSchema.optional(),
+    quizTitle: z.string().min(3).max(100).optional(),
     createdAt: z.number().int().nonnegative(),
     archivedAt: z.number().int().nonnegative(),
     participantCount: z.number().int().nonnegative(),

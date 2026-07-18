@@ -313,7 +313,8 @@ a:hover {
 }
 
 .form-field input,
-.form-field textarea {
+.form-field textarea,
+.form-field select {
   width: 100%;
   min-height: 56px;
   padding: 14px 16px;
@@ -426,7 +427,7 @@ a:hover {
 
 .room-creation-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.65fr) auto;
   align-items: end;
   gap: 14px;
   margin: 32px 0;

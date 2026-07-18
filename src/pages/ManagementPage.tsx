@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRooms } from "../features/live-game/use-managed-waiting-rooms";
+import { useQuizLibrary } from "../features/quizzes/use-quiz-library";
 import {
   archiveWaitingRoom,
   createWaitingRoom,
@@ -19,6 +20,7 @@ export function ManagementPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomQuizId, setNewRoomQuizId] = useState("");
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [roomPendingClosure, setRoomPendingClosure] = useState<string | null>(
     null,
@@ -32,6 +34,10 @@ export function ManagementPage() {
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [roomActionError, setRoomActionError] = useState("");
   const roomLibrary = useManagedWaitingRooms(user, refreshRevision);
+  const quizLibrary = useQuizLibrary(user);
+  const publishedQuizzes = quizLibrary.quizzes.filter(
+    ({ status }) => status === "published",
+  );
   const activeRooms = roomLibrary.rooms
     .filter(({ id }) => !archivedRoomIds.includes(id))
     .map((room) => ({
@@ -53,7 +59,10 @@ export function ManagementPage() {
     setRoomActionError("");
 
     try {
-      const room = await createWaitingRoom(user, { name: newRoomName });
+      const room = await createWaitingRoom(user, {
+        name: newRoomName,
+        ...(newRoomQuizId ? { quizId: newRoomQuizId } : {}),
+      });
       navigate(`/admin/room/${room.id}`);
     } catch (error) {
       console.error("Erro ao criar sala:", error);
@@ -168,6 +177,21 @@ export function ManagementPage() {
               onChange={(event) => setNewRoomName(event.target.value)}
             />
           </div>
+          <div className="form-field">
+            <label htmlFor="new-room-quiz">Quiz associado</label>
+            <select
+              id="new-room-quiz"
+              value={newRoomQuizId}
+              onChange={(event) => setNewRoomQuizId(event.target.value)}
+            >
+              <option value="">Sem quiz associado</option>
+              {publishedQuizzes.map((quiz) => (
+                <option key={quiz.id} value={quiz.id}>
+                  {quiz.title}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type="submit"
             className="primary-button"
@@ -227,6 +251,7 @@ export function ManagementPage() {
                       {room.name ?? `Sala ${room.id}`}
                     </strong>
                     <code>{room.id}</code>
+                    {room.quizTitle && <span>Quiz: {room.quizTitle}</span>}
                     <small>{room.participantCount} participante(s)</small>
                   </div>
 

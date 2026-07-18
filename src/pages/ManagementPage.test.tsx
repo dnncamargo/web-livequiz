@@ -30,6 +30,15 @@ const managementMocks = vi.hoisted(() => ({
     loading: false,
     error: null as string | null,
   },
+  quizLibraryState: {
+    quizzes: [] as Array<{
+      id: string;
+      title: string;
+      status: "draft" | "published" | "archived";
+    }>,
+    loading: false,
+    error: null as string | null,
+  },
 }));
 
 vi.mock("../contexts/auth-context", () => ({
@@ -49,6 +58,10 @@ vi.mock("../features/live-game/waiting-room", () => ({
 
 vi.mock("../features/live-game/use-managed-waiting-rooms", () => ({
   useManagedWaitingRooms: () => managementMocks.roomLibraryState,
+}));
+
+vi.mock("../features/quizzes/use-quiz-library", () => ({
+  useQuizLibrary: () => managementMocks.quizLibraryState,
 }));
 
 describe("ManagementPage", () => {
@@ -78,6 +91,7 @@ describe("ManagementPage", () => {
     managementMocks.roomLibraryState.rooms = [];
     managementMocks.roomLibraryState.loading = false;
     managementMocks.roomLibraryState.error = null;
+    managementMocks.quizLibraryState.quizzes = [];
   });
 
   afterEach(cleanup);
@@ -109,6 +123,33 @@ describe("ManagementPage", () => {
       managementMocks.user,
       { name: "Quiz de Ciências" },
     );
+  });
+
+  it("associa um quiz publicado ao criar a sala", async () => {
+    const browserUser = userEvent.setup();
+    managementMocks.quizLibraryState.quizzes = [
+      { id: "quiz-1", title: "Ciências", status: "published" },
+      { id: "quiz-2", title: "Rascunho", status: "draft" },
+    ];
+    renderManagement();
+
+    await browserUser.type(
+      screen.getByLabelText("Nome da nova sala"),
+      "Turma 8A",
+    );
+    await browserUser.selectOptions(
+      screen.getByLabelText("Quiz associado"),
+      "quiz-1",
+    );
+    await browserUser.click(screen.getByRole("button", { name: "Criar sala" }));
+
+    expect(managementMocks.createWaitingRoom).toHaveBeenCalledWith(
+      managementMocks.user,
+      { name: "Turma 8A", quizId: "quiz-1" },
+    );
+    expect(
+      screen.queryByRole("option", { name: "Rascunho" }),
+    ).not.toBeInTheDocument();
   });
 
   it("apresenta nome, código e ações semanticamente separadas", () => {
