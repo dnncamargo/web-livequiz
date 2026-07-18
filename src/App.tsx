@@ -13,6 +13,7 @@ import { FirebaseTestPage } from "./pages/FirebaseTestPage";
 import { HomePage } from "./pages/HomePage";
 import { ManagementPage } from "./pages/ManagementPage";
 import { PresentationPage } from "./pages/PresentationPage";
+import { QuizLibraryPage } from "./pages/QuizLibraryPage";
 import { WaitingRoomPage } from "./pages/WaitingRoomPage";
 
 export function App() {
@@ -33,6 +34,7 @@ export function App() {
         }
       >
         <Route index element={<ManagementPage />} />
+        <Route path="quizzes" element={<QuizLibraryPage />} />
         <Route path="room/:id" element={<WaitingRoomPage />} />
         <Route path="archive" element={<ArchivedRoomsPage />} />
         <Route path="firebase-test" element={<FirebaseTestPage />} />
@@ -43,6 +45,10 @@ export function App() {
         element={<Navigate to="/admin/firebase-test" replace />}
       />
       <Route path="/gerenciar" element={<Navigate to="/admin" replace />} />
+      <Route
+        path="/gerenciar/quizzes"
+        element={<Navigate to="/admin/quizzes" replace />}
+      />
       <Route path="/gerenciar/sala/:id" element={<LegacyAdminRoomRedirect />} />
       <Route
         path="/gerenciar/salas-arquivadas"

@@ -1,0 +1,69 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FirebaseAdminServices } from "./firebase-admin.js";
+import { createQuiz, listQuizzes } from "./quiz-service.js";
+
+function createServices(): Pick<
+  FirebaseAdminServices,
+  "createQuiz" | "findQuizzes"
+> {
+  return { createQuiz: vi.fn(), findQuizzes: vi.fn() };
+}
+
+describe("serviço de quizzes", () => {
+  let services: ReturnType<typeof createServices>;
+
+  beforeEach(() => {
+    services = createServices();
+  });
+
+  it("cria um quiz vazio em rascunho", async () => {
+    vi.mocked(services.createQuiz).mockResolvedValue({
+      quizId: "quiz-1",
+      quiz: {
+        ownerId: "administrador-1",
+        title: "Ciências",
+        description: "Oitavo ano",
+        status: "draft",
+        questionCount: 0,
+        createdAt: 1_000,
+        updatedAt: 1_000,
+      },
+    });
+
+    await expect(
+      createQuiz(
+        "administrador-1",
+        { title: "Ciências", description: "Oitavo ano" },
+        services as FirebaseAdminServices,
+        () => 1_000,
+      ),
+    ).resolves.toMatchObject({ id: "quiz-1", status: "draft" });
+  });
+
+  it("ordena a biblioteca pela atualização mais recente", async () => {
+    vi.mocked(services.findQuizzes).mockResolvedValue(
+      [
+        { quizId: "antigo", updatedAt: 1_000 },
+        { quizId: "novo", updatedAt: 2_000 },
+      ].map(({ quizId, updatedAt }) => ({
+        quizId,
+        quiz: {
+          ownerId: "administrador-1",
+          title: quizId === "novo" ? "Quiz novo" : "Quiz antigo",
+          description: "",
+          status: "draft",
+          questionCount: 0,
+          createdAt: updatedAt,
+          updatedAt,
+        },
+      })),
+    );
+
+    const quizzes = await listQuizzes(
+      "administrador-1",
+      services as FirebaseAdminServices,
+    );
+
+    expect(quizzes.map(({ id }) => id)).toEqual(["novo", "antigo"]);
+  });
+});

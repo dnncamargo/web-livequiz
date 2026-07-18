@@ -8,6 +8,7 @@ import {
   participantAvatarSchema,
 } from "../../src/shared/avatar.js";
 import type { PublicWaitingRoomParticipant } from "../../src/shared/waiting-room.js";
+import type { CreateQuizRequest } from "../../src/shared/quiz.js";
 
 const ADMIN_APP_NAME = "quizumba-server";
 
@@ -22,6 +23,14 @@ export interface FirebaseAdminServices {
   verifyIdToken: (idToken: string) => Promise<unknown>;
   getAdministratorProfile: (uid: string) => Promise<unknown | null>;
   checkRealtimeDatabaseConnection: () => Promise<void>;
+  createQuiz: (
+    ownerId: string,
+    input: CreateQuizRequest,
+    createdAt: number,
+  ) => Promise<{ quizId: string; quiz: unknown }>;
+  findQuizzes: (
+    ownerId: string,
+  ) => Promise<Array<{ quizId: string; quiz: unknown }>>;
   claimWaitingRoom: (
     gameId: string,
     privateRoom: Record<string, unknown>,
@@ -246,6 +255,33 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
     },
     checkRealtimeDatabaseConnection: async () => {
       await database.ref("publicGames").limitToFirst(1).get();
+    },
+    createQuiz: async (ownerId, input, createdAt) => {
+      const quizReference = firestore.collection("quizzes").doc();
+      const quiz = {
+        ownerId,
+        title: input.title,
+        description: input.description,
+        status: "draft",
+        questionCount: 0,
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      await quizReference.set(quiz);
+
+      return { quizId: quizReference.id, quiz };
+    },
+    findQuizzes: async (ownerId) => {
+      const snapshot = await firestore
+        .collection("quizzes")
+        .where("ownerId", "==", ownerId)
+        .get();
+
+      return snapshot.docs.map((document) => ({
+        quizId: document.id,
+        quiz: document.data(),
+      }));
     },
     claimWaitingRoom: async (gameId, privateRoom) => {
       const result = await database

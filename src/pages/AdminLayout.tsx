@@ -16,6 +16,7 @@ export function AdminLayout() {
           <NavLink end to="/admin">
             Salas
           </NavLink>
+          <NavLink to="/admin/quizzes">Quizzes</NavLink>
           <NavLink to="/admin/archive">Arquivo</NavLink>
           <NavLink to="/admin/firebase-test">Diagnóstico</NavLink>
         </nav>

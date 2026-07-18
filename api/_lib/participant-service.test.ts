@@ -10,6 +10,8 @@ function createServices(): FirebaseAdminServices {
     verifyIdToken: vi.fn(),
     getAdministratorProfile: vi.fn(),
     checkRealtimeDatabaseConnection: vi.fn(),
+    createQuiz: vi.fn(),
+    findQuizzes: vi.fn(),
     claimWaitingRoom: vi.fn(),
     publishWaitingRoom: vi.fn(),
     removeWaitingRoom: vi.fn(),
