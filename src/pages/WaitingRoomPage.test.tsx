@@ -11,6 +11,7 @@ type Room = {
   id: string;
   name?: string;
   phase: "waiting" | "finished";
+  presentationStatus?: "inactive" | "active";
   createdAt: number;
   participantCount: number;
 };
@@ -21,6 +22,7 @@ const roomHookMock = vi.hoisted(() => ({
       id: "ABC234",
       name: "Quiz de Ciências",
       phase: "waiting",
+      presentationStatus: "active",
       createdAt: 1_000,
       participantCount: 0,
     } as Room | null,
@@ -90,6 +92,7 @@ function buildRoom(overrides: Partial<Room> = {}): Room {
     id: "ABC234",
     name: "Quiz de Ciências",
     phase: "waiting",
+    presentationStatus: "active",
     createdAt: 1_000,
     participantCount: 0,
     ...overrides,
@@ -139,7 +142,8 @@ describe("WaitingRoomPage", () => {
     expect(roomHookMock.gameId).toBe("ABC234");
     expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
-    expect(screen.getByText("Em apresentação")).toBeInTheDocument();
+    expect(screen.getByText("Aguardando participantes")).toBeInTheDocument();
+    expect(screen.getByText("Ativa")).toBeInTheDocument();
     expect(screen.getByLabelText("Resumo da sala")).toHaveTextContent("0");
     expect(managedRoomHookMock.gameId).toBe("ABC234");
     expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
@@ -246,13 +250,13 @@ describe("WaitingRoomPage", () => {
       expect.objectContaining({ uid: "administrador-1" }),
       { gameId: "ABC234", action: "end-room" },
     );
-    expect(await screen.findByText("Finalizada")).toBeInTheDocument();
+    expect(await screen.findByText("Inativa")).toBeInTheDocument();
     expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
   });
 
   it("apresenta sem confirmação", async () => {
     const browserUser = userEvent.setup();
-    roomHookMock.state.room = buildRoom({ phase: "finished" });
+    roomHookMock.state.room = buildRoom({ presentationStatus: "inactive" });
     renderWaitingRoom();
 
     await browserUser.click(screen.getByRole("button", { name: "Apresentar" }));

@@ -8,6 +8,10 @@ import {
   type JoinParticipantRequest,
   type ParticipantSession,
 } from "../../shared/participant";
+import {
+  DEFAULT_PARTICIPANT_AVATAR,
+  PARTICIPANT_AVATARS,
+} from "../../shared/avatar";
 import { usePublicWaitingRoom } from "../live-game/use-public-waiting-room";
 import {
   clearActiveParticipantSession,
@@ -85,7 +89,11 @@ export function ParticipantJoinPanel({
     formState: { errors, isSubmitting },
   } = useForm<JoinParticipantRequest>({
     resolver: zodResolver(joinParticipantRequestSchema),
-    defaultValues: { gameId: initialGameId, nickname: "" },
+    defaultValues: {
+      gameId: initialGameId,
+      nickname: "",
+      avatar: DEFAULT_PARTICIPANT_AVATAR,
+    },
   });
 
   useEffect(() => {
@@ -156,7 +164,12 @@ export function ParticipantJoinPanel({
     return (
       <div className="participant-session" aria-live="polite">
         <span className="eyebrow">Você está na sala</span>
+        <span className="participant-avatar" aria-hidden="true">
+          {participant.avatar}
+        </span>
         <strong className="participant-nickname">{participant.nickname}</strong>
+
+        {sessionRoom.room?.name && <p>{sessionRoom.room.name}</p>}
 
         <div className="participant-session-summary">
           <div>
@@ -267,6 +280,19 @@ export function ParticipantJoinPanel({
             </span>
           )}
         </div>
+
+        <fieldset className="avatar-picker">
+          <legend>Escolha seu avatar</legend>
+          <div>
+            {PARTICIPANT_AVATARS.map((avatar) => (
+              <label key={avatar}>
+                <input type="radio" value={avatar} {...register("avatar")} />
+                <span aria-hidden="true">{avatar}</span>
+                <span className="sr-only">Avatar {avatar}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <div className="form-field">
           <label htmlFor="participant-nickname">Seu nickname</label>

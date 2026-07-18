@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  DEFAULT_PARTICIPANT_AVATAR,
+  participantAvatarSchema,
+} from "../../src/shared/avatar.js";
+import {
   joinParticipantRequestSchema,
   participantModerationStatusSchema,
   participantNicknameSchema,
@@ -13,6 +17,7 @@ import { HttpError } from "./http-error.js";
 
 const participantRecordSchema = z.object({
   nickname: participantNicknameSchema,
+  avatar: participantAvatarSchema.default(DEFAULT_PARTICIPANT_AVATAR),
   moderationStatus: participantModerationStatusSchema,
   joinedAt: z.number().int().nonnegative(),
 });
@@ -55,6 +60,7 @@ export async function joinWaitingRoom(
       parsedInput.gameId,
       participantId,
       parsedInput.nickname,
+      parsedInput.avatar,
       now(),
     );
   } catch (error) {
@@ -101,9 +107,10 @@ export async function joinWaitingRoom(
   );
 
   try {
-    await services.publishParticipantCount(
+    await services.publishParticipantSummary(
       parsedInput.gameId,
       registration.participantCount,
+      registration.participants ?? [],
     );
   } catch (error) {
     console.error(

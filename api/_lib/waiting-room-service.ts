@@ -10,6 +10,7 @@ import {
   endWaitingRoomRequestSchema,
   presentWaitingRoomRequestSchema,
   publicWaitingRoomSchema,
+  presentationStatusSchema,
   restoreWaitingRoomRequestSchema,
   waitingRoomCodeSchema,
   waitingRoomNameSchema,
@@ -55,6 +56,7 @@ const privateWaitingRoomSchema = z
     ownerId: z.string().min(1),
     name: waitingRoomNameSchema.optional(),
     phase: waitingRoomPhaseSchema,
+    presentationStatus: presentationStatusSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     participants: z.record(z.string(), z.unknown()).optional(),
   })
@@ -204,14 +206,16 @@ export async function createWaitingRoom(
     const privateRoom = {
       ownerId,
       name: parsedInput.name,
-      phase: "finished",
+      phase: "waiting",
+      presentationStatus: "inactive",
       createdAt,
       updatedAt: createdAt,
     };
     const publicRoom = publicWaitingRoomSchema.parse({
       id: gameId,
       name: parsedInput.name,
-      phase: "finished",
+      phase: "waiting",
+      presentationStatus: "inactive",
       createdAt,
       participantCount: 0,
     });
@@ -292,23 +296,25 @@ export async function listManagedWaitingRooms(
     .sort((first, second) => second.createdAt - first.createdAt);
 }
 
-async function setWaitingRoomPhase(
+async function setWaitingRoomPresentationStatus(
   ownerId: string,
   gameId: string,
-  phase: "waiting" | "finished",
+  presentationStatus: "inactive" | "active",
   services: FirebaseAdminServices,
   now: () => number,
 ): Promise<PublicWaitingRoom> {
   const waitingRoom = await getManagedWaitingRoom(ownerId, services, gameId);
 
-  await services.setWaitingRoomPhase(
+  await services.setWaitingRoomPresentationStatus(
     gameId,
-    phase,
+    presentationStatus,
     now(),
-    waitingRoom.participants.map(({ participantId }) => participantId),
   );
 
-  return publicWaitingRoomSchema.parse({ ...waitingRoom.room, phase });
+  return publicWaitingRoomSchema.parse({
+    ...waitingRoom.room,
+    presentationStatus,
+  });
 }
 
 export async function endWaitingRoom(
@@ -319,10 +325,10 @@ export async function endWaitingRoom(
 ): Promise<PublicWaitingRoom> {
   const parsedInput = endWaitingRoomRequestSchema.parse(input);
 
-  return setWaitingRoomPhase(
+  return setWaitingRoomPresentationStatus(
     ownerId,
     parsedInput.gameId,
-    "finished",
+    "inactive",
     services,
     now,
   );
@@ -336,10 +342,10 @@ export async function presentWaitingRoom(
 ): Promise<PublicWaitingRoom> {
   const parsedInput = presentWaitingRoomRequestSchema.parse(input);
 
-  return setWaitingRoomPhase(
+  return setWaitingRoomPresentationStatus(
     ownerId,
     parsedInput.gameId,
-    "waiting",
+    "active",
     services,
     now,
   );
@@ -433,7 +439,8 @@ export async function restoreWaitingRoom(
   const privateRoom = {
     ownerId,
     name: archivedRoom.name,
-    phase: "finished",
+    phase: "waiting",
+    presentationStatus: "inactive",
     createdAt: archivedRoom.createdAt,
     updatedAt: restoredAt,
     restoredAt,
@@ -441,7 +448,8 @@ export async function restoreWaitingRoom(
   const publicRoom = publicWaitingRoomSchema.parse({
     id: archivedRoom.id,
     name: archivedRoom.name,
-    phase: "finished",
+    phase: "waiting",
+    presentationStatus: "inactive",
     createdAt: archivedRoom.createdAt,
     participantCount: 0,
   });
@@ -523,9 +531,10 @@ export async function removeWaitingRoomParticipant(
   }
 
   try {
-    await services.publishParticipantCount(
+    await services.publishParticipantSummary(
       parsedInput.gameId,
       removal.participantCount,
+      removal.participants ?? [],
     );
   } catch (error) {
     console.error(

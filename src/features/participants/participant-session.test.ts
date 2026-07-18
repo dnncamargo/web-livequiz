@@ -20,6 +20,7 @@ const participant = {
   gameId: "ABC234",
   participantId: "participante-1",
   nickname: "Estrela Azul",
+  avatar: "🦊",
   moderationStatus: "waiting-approval",
   joinedAt: 1_000,
 };
@@ -40,7 +41,7 @@ describe("sessão do participante", () => {
     await expect(
       joinParticipantSession(
         user,
-        { gameId: "abc234", nickname: "  Estrela   Azul " },
+        { gameId: "abc234", nickname: "  Estrela   Azul ", avatar: "🦊" },
         { fetch: fetchMock, storage },
       ),
     ).resolves.toEqual(participant);
@@ -51,6 +52,7 @@ describe("sessão do participante", () => {
         body: JSON.stringify({
           gameId: "ABC234",
           nickname: "Estrela Azul",
+          avatar: "🦊",
         }),
       }),
     );
@@ -105,7 +107,7 @@ describe("sessão do participante", () => {
     await expect(
       joinParticipantSession(
         user,
-        { gameId: "ABC234", nickname: "Cometa" },
+        { gameId: "ABC234", nickname: "Cometa", avatar: "🦊" },
         { fetch: vi.fn(), storage: createStorage() },
       ),
     ).rejects.toEqual(
@@ -122,7 +124,7 @@ describe("sessão do participante", () => {
     await expect(
       joinParticipantSession(
         user,
-        { gameId: "ABC234", nickname: "Cometa" },
+        { gameId: "ABC234", nickname: "Cometa", avatar: "🦊" },
         { fetch: fetchMock, storage: createStorage() },
       ),
     ).rejects.toEqual(

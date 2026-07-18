@@ -26,6 +26,7 @@ const participantSession = {
   gameId: "ABC234",
   participantId: "participante-1",
   nickname: "Estrela Azul",
+  avatar: "🦊",
   moderationStatus: "waiting-approval",
   joinedAt: 1_000,
 };
@@ -57,6 +58,7 @@ describe("/api/participants", () => {
         body: JSON.stringify({
           gameId: " abc234 ",
           nickname: " Estrela   Azul ",
+          avatar: "🦊",
         }),
       }),
     );
@@ -67,7 +69,7 @@ describe("/api/participants", () => {
     });
     expect(participantApiMocks.joinWaitingRoom).toHaveBeenCalledWith(
       "participante-1",
-      { gameId: "ABC234", nickname: "Estrela Azul" },
+      { gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" },
       participantApiMocks.services,
     );
   });

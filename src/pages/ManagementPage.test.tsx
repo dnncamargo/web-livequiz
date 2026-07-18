@@ -23,6 +23,7 @@ const managementMocks = vi.hoisted(() => ({
       id: string;
       name?: string;
       phase: "waiting" | "finished";
+      presentationStatus?: "inactive" | "active";
       createdAt: number;
       participantCount: number;
     }>,
@@ -190,6 +191,7 @@ describe("ManagementPage", () => {
         id: "ABC234",
         name: "Quiz de Ciências",
         phase: "waiting",
+        presentationStatus: "active",
         createdAt: 1_000,
         participantCount: 2,
       },

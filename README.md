@@ -19,7 +19,8 @@ implementados:
 - criação segura de salas nomeadas pela API da Vercel;
 - nome, código público de seis caracteres e rota administrativa recuperável
   após atualização da página;
-- entrada do participante com código e nickname validado pelo servidor;
+- entrada do participante com código, nickname e avatar escolhido pelo usuário,
+  validados pelo servidor;
 - restauração da participação após atualização da página e ativação da
   presença somente depois do registro seguro na sala;
 - bloqueio de nicknames duplicados e publicação apenas da contagem de
@@ -118,13 +119,13 @@ a sala pertence ao administrador solicitante. A remoção marca o registro como
 removido, encerra suas conexões e atualiza apenas a contagem pública.
 
 A mesma função controla o ciclo de vida somente após confirmar a propriedade.
-Criar produz uma sala inicialmente finalizada; **Apresentar** ativa novas
-entradas; **Encerrar** finaliza somente a apresentação, desconecta os
-participantes e preserva a sala; **Arquivar** move seus metadados para a coleção
-privada `archivedWaitingRooms` do Firestore e remove o estado transitório do
-Realtime Database. Restaurar recria a sala finalizada, sem participantes
-conectados. Excluir apaga definitivamente o documento arquivado. Sair da conta
-administrativa não altera nenhuma sala.
+Criar produz uma sala na fase de espera, já disponível para entradas.
+**Apresentar** ativa somente a apresentação pública; **Encerrar** a desativa e
+mantém a sala e seus participantes; **Arquivar** move seus metadados para a
+coleção privada `archivedWaitingRooms` do Firestore e remove o estado
+transitório do Realtime Database. Restaurar recria a sala em espera, sem
+participantes conectados. Excluir apaga definitivamente o documento arquivado.
+Sair da conta administrativa não altera nenhuma sala.
 
 Criar, Apresentar e Arquivar são ações diretas. Encerrar, Restaurar e Excluir
 exigem confirmação na interface.
@@ -182,6 +183,8 @@ No Realtime Database:
 - `publicGames/{gameId}` permite somente leitura pública e nunca recebe dados
   administrativos, respostas individuais ou a alternativa correta antes da
   revelação;
+- a lista pública de participantes contém somente nickname e avatar, sem UID,
+  status de moderação, presença ou outras informações privadas;
 - `liveGames/{gameId}` permanece privado;
 - `liveGames` possui somente um índice de servidor por `ownerId`, sem conceder
   leitura ao navegador, para montar a biblioteca administrativa;

@@ -44,7 +44,7 @@ export function PresentationPage() {
               <strong className="room-code">{roomState.room.id}</strong>
             </div>
 
-            {roomState.room.phase === "waiting" ? (
+            {(roomState.room.presentationStatus ?? "inactive") === "active" ? (
               <div className="session-status" role="status">
                 <strong>Apresentação ativa</strong>
                 <span>
@@ -53,10 +53,31 @@ export function PresentationPage() {
               </div>
             ) : (
               <div className="test-result test-result-error" role="status">
-                <strong>Apresentação encerrada</strong>
-                <p>A sala permanece disponível para uma nova apresentação.</p>
+                <strong>Apresentação inativa</strong>
+                <p>Use “Apresentar” no gerenciamento para ativá-la.</p>
               </div>
             )}
+
+            <section
+              className="presentation-participants"
+              aria-labelledby="presentation-participants-title"
+            >
+              <h2 id="presentation-participants-title">Participantes</h2>
+              {(roomState.room.participants?.length ?? 0) === 0 ? (
+                <p>Aguardando a entrada dos participantes.</p>
+              ) : (
+                <ul>
+                  {roomState.room.participants?.map((participant, index) => (
+                    <li key={`${participant.nickname}-${index}`}>
+                      <span className="presentation-avatar" aria-hidden="true">
+                        {participant.avatar}
+                      </span>
+                      <strong>{participant.nickname}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
 

@@ -3,6 +3,10 @@ import {
   publicWaitingRoomSchema,
   waitingRoomCodeSchema,
 } from "./waiting-room.js";
+import {
+  DEFAULT_PARTICIPANT_AVATAR,
+  participantAvatarSchema,
+} from "./avatar.js";
 
 export const PARTICIPANT_NICKNAME_MIN_LENGTH = 2;
 export const PARTICIPANT_NICKNAME_MAX_LENGTH = 20;
@@ -42,6 +46,7 @@ export const joinParticipantRequestSchema = z
   .object({
     gameId: participantGameCodeSchema,
     nickname: participantNicknameSchema,
+    avatar: participantAvatarSchema,
   })
   .strict();
 
@@ -50,6 +55,7 @@ export const participantSessionSchema = z
     gameId: waitingRoomCodeSchema,
     participantId: z.string().min(1),
     nickname: normalizedNicknameSchema,
+    avatar: participantAvatarSchema.default(DEFAULT_PARTICIPANT_AVATAR),
     moderationStatus: participantModerationStatusSchema,
     joinedAt: z.number().int().nonnegative(),
   })

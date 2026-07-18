@@ -27,9 +27,10 @@ export function ManagementPage() {
   );
   const [processingRoomId, setProcessingRoomId] = useState<string | null>(null);
   const [archivedRoomIds, setArchivedRoomIds] = useState<string[]>([]);
-  const [phaseOverrides, setPhaseOverrides] = useState<
-    Record<string, PublicWaitingRoom["phase"]>
-  >({});
+  const [presentationStatusOverrides, setPresentationStatusOverrides] =
+    useState<
+      Record<string, NonNullable<PublicWaitingRoom["presentationStatus"]>>
+    >({});
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [roomActionError, setRoomActionError] = useState("");
   const [accountError, setAccountError] = useState("");
@@ -38,7 +39,10 @@ export function ManagementPage() {
     .filter(({ id }) => !archivedRoomIds.includes(id))
     .map((room) => ({
       ...room,
-      phase: phaseOverrides[room.id] ?? room.phase,
+      presentationStatus:
+        presentationStatusOverrides[room.id] ??
+        room.presentationStatus ??
+        "inactive",
     }));
 
   async function handleCreateWaitingRoom(event: FormEvent<HTMLFormElement>) {
@@ -75,7 +79,10 @@ export function ManagementPage() {
 
     try {
       await presentWaitingRoom(user, { gameId, action: "present-room" });
-      setPhaseOverrides((phases) => ({ ...phases, [gameId]: "waiting" }));
+      setPresentationStatusOverrides((statuses) => ({
+        ...statuses,
+        [gameId]: "active",
+      }));
       navigate(`/apresentacao?sala=${gameId}`);
     } catch (error) {
       console.error("Erro ao apresentar sala:", error);
@@ -98,7 +105,10 @@ export function ManagementPage() {
 
     try {
       await endWaitingRoom(user, { gameId, action: "end-room" });
-      setPhaseOverrides((phases) => ({ ...phases, [gameId]: "finished" }));
+      setPresentationStatusOverrides((statuses) => ({
+        ...statuses,
+        [gameId]: "inactive",
+      }));
       setRoomPendingClosure(null);
       setRefreshRevision((revision) => revision + 1);
     } catch (error) {
@@ -230,10 +240,12 @@ export function ManagementPage() {
               {activeRooms.map((room) => (
                 <li key={room.id}>
                   <div className="room-library-summary">
-                    <span className={`room-status room-status-${room.phase}`}>
-                      {room.phase === "waiting"
+                    <span
+                      className={`room-status room-status-${room.presentationStatus}`}
+                    >
+                      {room.presentationStatus === "active"
                         ? "Em apresentação"
-                        : "Apresentação finalizada"}
+                        : "Sala de espera"}
                     </span>
                     <strong className="room-library-name">
                       {room.name ?? `Sala ${room.id}`}
@@ -257,7 +269,7 @@ export function ManagementPage() {
                     >
                       Apresentar
                     </button>
-                    {room.phase === "waiting" &&
+                    {room.presentationStatus === "active" &&
                       roomPendingClosure !== room.id && (
                         <button
                           type="button"

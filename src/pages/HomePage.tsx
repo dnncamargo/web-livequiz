@@ -92,6 +92,9 @@ export function HomePage() {
             aria-label="Sala ativa identificada"
           >
             <span>Sala de espera ativa</span>
+            {linkedRoomState.room.name && (
+              <strong>{linkedRoomState.room.name}</strong>
+            )}
             <strong>{linkedRoomState.room.id}</strong>
             <small>
               Aguardando · {linkedRoomState.room.participantCount}{" "}
@@ -196,8 +199,6 @@ export function HomePage() {
         )}
 
         <nav className="navigation">
-          <Link to="/apresentacao">Abrir apresentação</Link>
-
           <Link to="/login">Administração</Link>
         </nav>
       </section>

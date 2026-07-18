@@ -3,6 +3,11 @@ import { getAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
 import { getFirestore } from "firebase-admin/firestore";
 import { z } from "zod";
+import {
+  DEFAULT_PARTICIPANT_AVATAR,
+  participantAvatarSchema,
+} from "../../src/shared/avatar.js";
+import type { PublicWaitingRoomParticipant } from "../../src/shared/waiting-room.js";
 
 const ADMIN_APP_NAME = "quizumba-server";
 
@@ -33,11 +38,10 @@ export interface FirebaseAdminServices {
   findWaitingRooms: (
     ownerId: string,
   ) => Promise<Array<{ gameId: string; room: unknown }>>;
-  setWaitingRoomPhase: (
+  setWaitingRoomPresentationStatus: (
     gameId: string,
-    phase: "waiting" | "finished",
+    presentationStatus: "inactive" | "active",
     changedAt: number,
-    participantIds: string[],
   ) => Promise<void>;
   saveArchivedWaitingRoom: (
     gameId: string,
@@ -52,15 +56,17 @@ export interface FirebaseAdminServices {
     gameId: string,
     participantId: string,
     nickname: string,
+    avatar: string,
     joinedAt: number,
   ) => Promise<ParticipantRegistrationResult>;
   getParticipant: (
     gameId: string,
     participantId: string,
   ) => Promise<unknown | null>;
-  publishParticipantCount: (
+  publishParticipantSummary: (
     gameId: string,
     participantCount: number,
+    participants: PublicWaitingRoomParticipant[],
   ) => Promise<void>;
   removeParticipant: (
     gameId: string,
@@ -80,11 +86,13 @@ export interface ParticipantRegistrationResult {
   outcome: ParticipantRegistrationOutcome;
   participant: unknown | null;
   participantCount: number;
+  participants?: PublicWaitingRoomParticipant[];
 }
 
 export interface ParticipantRemovalResult {
   removed: boolean;
   participantCount: number;
+  participants?: PublicWaitingRoomParticipant[];
 }
 
 export type FirebaseAdminConfigurationErrorCode =
@@ -137,6 +145,27 @@ function countRegisteredParticipants(value: unknown): number {
       (participant.moderationStatus === "waiting-approval" ||
         participant.moderationStatus === "approved"),
   ).length;
+}
+
+function getPublicParticipants(value: unknown): PublicWaitingRoomParticipant[] {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  return Object.values(value)
+    .filter(isRecord)
+    .filter(
+      (participant) =>
+        (participant.moderationStatus === "waiting-approval" ||
+          participant.moderationStatus === "approved") &&
+        typeof participant.nickname === "string",
+    )
+    .map((participant) => ({
+      nickname: participant.nickname as string,
+      avatar: participantAvatarSchema
+        .catch(DEFAULT_PARTICIPANT_AVATAR)
+        .parse(participant.avatar),
+    }));
 }
 
 function getAdministratorEnvironment() {
@@ -287,25 +316,18 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         room,
       }));
     },
-    setWaitingRoomPhase: async (gameId, phase, changedAt, participantIds) => {
+    setWaitingRoomPresentationStatus: async (
+      gameId,
+      presentationStatus,
+      changedAt,
+    ) => {
       const updates: Record<string, unknown> = {
-        [`liveGames/${gameId}/phase`]: phase,
+        [`liveGames/${gameId}/presentationStatus`]: presentationStatus,
         [`liveGames/${gameId}/updatedAt`]: changedAt,
-        [`liveGames/${gameId}/endedAt`]:
-          phase === "finished" ? changedAt : null,
-        [`publicGames/${gameId}/phase`]: phase,
+        [`liveGames/${gameId}/presentationEndedAt`]:
+          presentationStatus === "inactive" ? changedAt : null,
+        [`publicGames/${gameId}/presentationStatus`]: presentationStatus,
       };
-
-      if (phase === "finished") {
-        for (const participantId of participantIds) {
-          updates[
-            `liveGames/${gameId}/participants/${participantId}/presence/connections`
-          ] = null;
-          updates[
-            `liveGames/${gameId}/participants/${participantId}/presence/lastDisconnectedAt`
-          ] = changedAt;
-        }
-      }
 
       await database.ref().update(updates);
     },
@@ -333,7 +355,13 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
     deleteArchivedWaitingRoom: async (gameId) => {
       await firestore.doc(`archivedWaitingRooms/${gameId}`).delete();
     },
-    registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
+    registerParticipant: async (
+      gameId,
+      participantId,
+      nickname,
+      avatar,
+      joinedAt,
+    ) => {
       let outcome: ParticipantRegistrationOutcome = "room-not-found";
       const gameReference = database.ref(`liveGames/${gameId}`);
       const initialSnapshot = await gameReference.get();
@@ -344,6 +372,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           outcome: "room-not-found",
           participant: null,
           participantCount: 0,
+          participants: [],
         };
       }
 
@@ -352,6 +381,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           outcome: "room-not-waiting",
           participant: null,
           participantCount: 0,
+          participants: [],
         };
       }
 
@@ -406,6 +436,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
               ...participants,
               [participantId]: {
                 nickname,
+                avatar,
                 moderationStatus: "waiting-approval",
                 joinedAt,
               },
@@ -418,7 +449,12 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       );
 
       if (!result.committed) {
-        return { outcome, participant: null, participantCount: 0 };
+        return {
+          outcome,
+          participant: null,
+          participantCount: 0,
+          participants: [],
+        };
       }
 
       const gameValue: unknown = result.snapshot.val();
@@ -432,6 +468,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           ? (participants[participantId] ?? null)
           : null,
         participantCount: countRegisteredParticipants(participants),
+        participants: getPublicParticipants(participants),
       };
     },
     getParticipant: async (gameId, participantId) => {
@@ -441,10 +478,15 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
 
       return snapshot.exists() ? snapshot.val() : null;
     },
-    publishParticipantCount: async (gameId, participantCount) => {
-      await database
-        .ref(`publicGames/${gameId}/participantCount`)
-        .set(participantCount);
+    publishParticipantSummary: async (
+      gameId,
+      participantCount,
+      participants,
+    ) => {
+      await database.ref(`publicGames/${gameId}`).update({
+        participantCount,
+        participants,
+      });
     },
     removeParticipant: async (gameId, participantId, removedAt) => {
       const gameReference = database.ref(`liveGames/${gameId}`);
@@ -452,7 +494,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       const initialGame: unknown = initialSnapshot.val();
 
       if (!isRecord(initialGame)) {
-        return { removed: false, participantCount: 0 };
+        return { removed: false, participantCount: 0, participants: [] };
       }
 
       let participantFound = false;
@@ -509,7 +551,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       );
 
       if (!result.committed || !participantFound) {
-        return { removed: false, participantCount: 0 };
+        return { removed: false, participantCount: 0, participants: [] };
       }
 
       const gameValue: unknown = result.snapshot.val();
@@ -520,6 +562,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
       return {
         removed: true,
         participantCount: countRegisteredParticipants(participants),
+        participants: getPublicParticipants(participants),
       };
     },
   };

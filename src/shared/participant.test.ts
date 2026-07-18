@@ -10,8 +10,9 @@ describe("contratos do participante", () => {
       joinParticipantRequestSchema.parse({
         gameId: " abc234 ",
         nickname: "  Estrela   Azul  ",
+        avatar: "🦊",
       }),
-    ).toEqual({ gameId: "ABC234", nickname: "Estrela Azul" });
+    ).toEqual({ gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" });
   });
 
   it("rejeita nickname curto, excessivo ou com símbolos não permitidos", () => {

@@ -31,8 +31,8 @@ export function WaitingRoomPage() {
   const [confirmingRoomClosure, setConfirmingRoomClosure] = useState(false);
   const [endingRoom, setEndingRoom] = useState(false);
   const [processingRoom, setProcessingRoom] = useState(false);
-  const [phaseOverride, setPhaseOverride] = useState<
-    "waiting" | "finished" | null
+  const [presentationStatusOverride, setPresentationStatusOverride] = useState<
+    "inactive" | "active" | null
   >(null);
   const [refreshRevision, setRefreshRevision] = useState(0);
   const publicRoomState = usePublicWaitingRoom(id);
@@ -45,7 +45,8 @@ export function WaitingRoomPage() {
   const participants = managedRoomState.waitingRoom?.participants ?? [];
   const loading = publicRoomState.loading && managedRoomState.loading;
   const error = publicRoomState.error ?? managedRoomState.error;
-  const roomPhase = phaseOverride ?? room?.phase;
+  const presentationStatus =
+    presentationStatusOverride ?? room?.presentationStatus ?? "inactive";
 
   async function confirmParticipantRemoval(participantId: string) {
     if (!user) {
@@ -85,7 +86,7 @@ export function WaitingRoomPage() {
 
     try {
       await endWaitingRoom(user, { gameId: id, action: "end-room" });
-      setPhaseOverride("finished");
+      setPresentationStatusOverride("inactive");
       setConfirmingRoomClosure(false);
       setRefreshRevision((revision) => revision + 1);
     } catch (error) {
@@ -110,7 +111,7 @@ export function WaitingRoomPage() {
 
     try {
       await presentWaitingRoom(user, { gameId: id, action: "present-room" });
-      setPhaseOverride("waiting");
+      setPresentationStatusOverride("active");
       navigate(`/apresentacao?sala=${id}`);
     } catch (error) {
       console.error("Erro ao apresentar sala:", error);
@@ -190,7 +191,15 @@ export function WaitingRoomPage() {
           <div>
             <span>Fase</span>
             <strong>
-              {roomPhase === "waiting" ? "Em apresentação" : "Finalizada"}
+              {room?.phase === "waiting"
+                ? "Aguardando participantes"
+                : "Finalizada"}
+            </strong>
+          </div>
+          <div>
+            <span>Apresentação</span>
+            <strong>
+              {presentationStatus === "active" ? "Ativa" : "Inativa"}
             </strong>
           </div>
           <div>
@@ -255,7 +264,7 @@ export function WaitingRoomPage() {
                         : "Desconectado"}
                     </span>
 
-                    {roomPhase === "waiting" &&
+                    {room?.phase === "waiting" &&
                       participant.moderationStatus !== "removed" &&
                       participantPendingRemoval !==
                         participant.participantId && (
@@ -333,7 +342,7 @@ export function WaitingRoomPage() {
             {processingRoom ? "Processando..." : "Apresentar"}
           </button>
 
-          {roomPhase === "waiting" && !confirmingRoomClosure && (
+          {presentationStatus === "active" && !confirmingRoomClosure && (
             <button
               type="button"
               className="danger-button"
@@ -346,8 +355,8 @@ export function WaitingRoomPage() {
           {confirmingRoomClosure && (
             <div className="room-closure-confirmation">
               <span>
-                A apresentação será finalizada e os participantes serão
-                desconectados.
+                A apresentação será finalizada; a sala continuará aguardando
+                participantes.
               </span>
               <div>
                 <button

@@ -73,6 +73,7 @@ const participant = {
   gameId: "ABC234",
   participantId: "participante-1",
   nickname: "Estrela Azul",
+  avatar: "🦊",
   moderationStatus: "waiting-approval",
   joinedAt: 1_000,
 };
@@ -120,7 +121,7 @@ describe("ParticipantJoinPanel", () => {
     expect(screen.getByText("Aguardando aprovação")).toBeInTheDocument();
     expect(joinPanelMocks.joinParticipantSession).toHaveBeenCalledWith(
       participantUser,
-      { gameId: "ABC234", nickname: "Estrela Azul" },
+      { gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" },
     );
   });
 

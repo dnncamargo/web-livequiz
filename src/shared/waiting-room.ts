@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { participantAvatarSchema } from "./avatar.js";
 
 export const WAITING_ROOM_CODE_LENGTH = 6;
 export const WAITING_ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -29,14 +30,24 @@ export const waitingRoomNameSchema = z
   .pipe(normalizedWaitingRoomNameSchema);
 
 export const waitingRoomPhaseSchema = z.enum(["waiting", "finished"]);
+export const presentationStatusSchema = z.enum(["inactive", "active"]);
+
+export const publicWaitingRoomParticipantSchema = z
+  .object({
+    nickname: z.string().min(2).max(20),
+    avatar: participantAvatarSchema,
+  })
+  .strict();
 
 export const publicWaitingRoomSchema = z
   .object({
     id: waitingRoomCodeSchema,
     name: normalizedWaitingRoomNameSchema.optional(),
     phase: waitingRoomPhaseSchema,
+    presentationStatus: presentationStatusSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     participantCount: z.number().int().nonnegative(),
+    participants: z.array(publicWaitingRoomParticipantSchema).optional(),
   })
   .strict();
 
@@ -125,6 +136,9 @@ export const apiErrorResponseSchema = z
   .strict();
 
 export type PublicWaitingRoom = z.infer<typeof publicWaitingRoomSchema>;
+export type PublicWaitingRoomParticipant = z.infer<
+  typeof publicWaitingRoomParticipantSchema
+>;
 export type CreateWaitingRoomRequest = z.infer<
   typeof createWaitingRoomRequestSchema
 >;

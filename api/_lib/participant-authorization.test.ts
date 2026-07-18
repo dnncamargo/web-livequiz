@@ -13,14 +13,14 @@ function createServices(decodedToken: unknown): FirebaseAdminServices {
     getWaitingRoom: vi.fn(),
     findActiveWaitingRoom: vi.fn(),
     findWaitingRooms: vi.fn(),
-    setWaitingRoomPhase: vi.fn(),
+    setWaitingRoomPresentationStatus: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),
     deleteArchivedWaitingRoom: vi.fn(),
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
-    publishParticipantCount: vi.fn(),
+    publishParticipantSummary: vi.fn(),
     removeParticipant: vi.fn(),
   };
 }

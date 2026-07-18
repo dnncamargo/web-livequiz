@@ -25,14 +25,14 @@ function createServices(): FirebaseAdminServices {
     getWaitingRoom: vi.fn(),
     findActiveWaitingRoom: vi.fn(),
     findWaitingRooms: vi.fn(),
-    setWaitingRoomPhase: vi.fn(),
+    setWaitingRoomPresentationStatus: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),
     deleteArchivedWaitingRoom: vi.fn(),
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
-    publishParticipantCount: vi.fn(),
+    publishParticipantSummary: vi.fn(),
     removeParticipant: vi.fn(),
   };
 }
@@ -55,7 +55,8 @@ describe("serviço de sala de espera", () => {
     expect(room).toMatchObject({
       id: "ABC234",
       name: "Quiz de Ciências",
-      phase: "finished",
+      phase: "waiting",
+      presentationStatus: "inactive",
       participantCount: 0,
     });
     expect(services.claimWaitingRoom).toHaveBeenCalledWith(
@@ -63,7 +64,7 @@ describe("serviço de sala de espera", () => {
       expect.objectContaining({
         ownerId: "administrador-1",
         name: "Quiz de Ciências",
-        phase: "finished",
+        phase: "waiting",
       }),
     );
     expect(services.publishWaitingRoom).toHaveBeenCalledWith(
@@ -289,7 +290,11 @@ describe("serviço de sala de espera", () => {
       "participante-1",
       3_000,
     );
-    expect(services.publishParticipantCount).toHaveBeenCalledWith("ABC234", 0);
+    expect(services.publishParticipantSummary).toHaveBeenCalledWith(
+      "ABC234",
+      0,
+      [],
+    );
     expect(waitingRoom.participants[0]?.moderationStatus).toBe("removed");
   });
 
@@ -340,12 +345,15 @@ describe("serviço de sala de espera", () => {
         services,
         () => 3_000,
       ),
-    ).resolves.toMatchObject({ id: "ABC234", phase: "finished" });
-    expect(services.setWaitingRoomPhase).toHaveBeenCalledWith(
+    ).resolves.toMatchObject({
+      id: "ABC234",
+      phase: "waiting",
+      presentationStatus: "inactive",
+    });
+    expect(services.setWaitingRoomPresentationStatus).toHaveBeenCalledWith(
       "ABC234",
-      "finished",
+      "inactive",
       3_000,
-      [],
     );
   });
 
@@ -367,15 +375,15 @@ describe("serviço de sala de espera", () => {
       status: 403,
       code: "waiting-room-owner-required",
     });
-    expect(services.setWaitingRoomPhase).not.toHaveBeenCalled();
+    expect(services.setWaitingRoomPresentationStatus).not.toHaveBeenCalled();
   });
 
-  it("apresenta novamente uma sala finalizada sem confirmação adicional", async () => {
+  it("ativa a apresentação sem alterar a fase de espera", async () => {
     const services = createServices();
     vi.mocked(services.getWaitingRoom).mockResolvedValue({
       ownerId: "administrador-1",
       name: "Quiz de Ciências",
-      phase: "finished",
+      phase: "waiting",
       createdAt: 1_000,
     });
 
@@ -386,12 +394,14 @@ describe("serviço de sala de espera", () => {
         services,
         () => 4_000,
       ),
-    ).resolves.toMatchObject({ phase: "waiting" });
-    expect(services.setWaitingRoomPhase).toHaveBeenCalledWith(
+    ).resolves.toMatchObject({
+      phase: "waiting",
+      presentationStatus: "active",
+    });
+    expect(services.setWaitingRoomPresentationStatus).toHaveBeenCalledWith(
       "ABC234",
-      "waiting",
+      "active",
       4_000,
-      [],
     );
   });
 
@@ -400,7 +410,7 @@ describe("serviço de sala de espera", () => {
     vi.mocked(services.getWaitingRoom).mockResolvedValue({
       ownerId: "administrador-1",
       name: "Quiz de Ciências",
-      phase: "finished",
+      phase: "waiting",
       createdAt: 1_000,
     });
 
@@ -478,7 +488,8 @@ describe("serviço de sala de espera", () => {
     ).resolves.toMatchObject({
       id: "ABC234",
       name: "Quiz de Ciências",
-      phase: "finished",
+      phase: "waiting",
+      presentationStatus: "inactive",
       participantCount: 0,
     });
     expect(services.claimWaitingRoom).toHaveBeenCalledWith(

@@ -16,14 +16,14 @@ function createServices(): FirebaseAdminServices {
     getWaitingRoom: vi.fn(),
     findActiveWaitingRoom: vi.fn(),
     findWaitingRooms: vi.fn(),
-    setWaitingRoomPhase: vi.fn(),
+    setWaitingRoomPresentationStatus: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),
     deleteArchivedWaitingRoom: vi.fn(),
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
-    publishParticipantCount: vi.fn(),
+    publishParticipantSummary: vi.fn(),
     removeParticipant: vi.fn(),
   };
 }
@@ -40,6 +40,7 @@ describe("serviço de participante", () => {
       outcome: "joined",
       participant: {
         nickname: "Estrela Azul",
+        avatar: "🦊",
         moderationStatus: "waiting-approval",
         joinedAt: 1_000,
       },
@@ -49,7 +50,7 @@ describe("serviço de participante", () => {
     await expect(
       joinWaitingRoom(
         "participante-1",
-        { gameId: "ABC234", nickname: "Estrela Azul" },
+        { gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" },
         services,
         () => 1_000,
       ),
@@ -59,7 +60,11 @@ describe("serviço de participante", () => {
       nickname: "Estrela Azul",
       moderationStatus: "waiting-approval",
     });
-    expect(services.publishParticipantCount).toHaveBeenCalledWith("ABC234", 3);
+    expect(services.publishParticipantSummary).toHaveBeenCalledWith(
+      "ABC234",
+      3,
+      [],
+    );
   });
 
   it("rejeita nickname já utilizado sem publicar contagem", async () => {
@@ -72,11 +77,11 @@ describe("serviço de participante", () => {
     await expect(
       joinWaitingRoom(
         "participante-1",
-        { gameId: "ABC234", nickname: "Estrela Azul" },
+        { gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" },
         services,
       ),
     ).rejects.toMatchObject({ status: 409, code: "nickname-taken" });
-    expect(services.publishParticipantCount).not.toHaveBeenCalled();
+    expect(services.publishParticipantSummary).not.toHaveBeenCalled();
   });
 
   it("mantém a entrada quando somente a contagem pública falha", async () => {
@@ -84,12 +89,13 @@ describe("serviço de participante", () => {
       outcome: "joined",
       participant: {
         nickname: "Cometa",
+        avatar: "🦊",
         moderationStatus: "waiting-approval",
         joinedAt: 1_000,
       },
       participantCount: 1,
     });
-    vi.mocked(services.publishParticipantCount).mockRejectedValue(
+    vi.mocked(services.publishParticipantSummary).mockRejectedValue(
       new Error("falha simulada na projeção pública"),
     );
     const consoleError = vi
@@ -99,7 +105,7 @@ describe("serviço de participante", () => {
     await expect(
       joinWaitingRoom(
         "participante-1",
-        { gameId: "ABC234", nickname: "Cometa" },
+        { gameId: "ABC234", nickname: "Cometa", avatar: "🦊" },
         services,
         () => 1_000,
       ),
@@ -123,7 +129,7 @@ describe("serviço de participante", () => {
     await expect(
       joinWaitingRoom(
         "participante-1",
-        { gameId: "ABC234", nickname: "Cometa" },
+        { gameId: "ABC234", nickname: "Cometa", avatar: "🦊" },
         services,
       ),
     ).rejects.toMatchObject({
@@ -137,6 +143,7 @@ describe("serviço de participante", () => {
   it("restaura somente o registro pertencente ao UID autenticado", async () => {
     vi.mocked(services.getParticipant).mockResolvedValue({
       nickname: "Cometa",
+      avatar: "🦊",
       moderationStatus: "approved",
       joinedAt: 1_000,
     });
