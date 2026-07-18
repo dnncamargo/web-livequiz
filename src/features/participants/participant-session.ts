@@ -204,7 +204,14 @@ export async function restoreParticipantSession(
   );
 
   try {
-    return await readParticipantResponse(response);
+    const participant = await readParticipantResponse(response);
+
+    if (participant.moderationStatus === "removed") {
+      clearActiveParticipantSession(dependencies.storage);
+      return null;
+    }
+
+    return participant;
   } catch (error) {
     if (
       error instanceof ParticipantSessionRequestError &&

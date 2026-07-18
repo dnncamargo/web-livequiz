@@ -101,6 +101,24 @@ describe("sessão do participante", () => {
     expect(storage.removeItem).toHaveBeenCalledWith("quizumba.activeGameId");
   });
 
+  it("não restaura uma participação removida", async () => {
+    const storage = createStorage();
+    storage.setItem("quizumba.activeGameId", "ABC234");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          participant: { ...participant, moderationStatus: "removed" },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      restoreParticipantSession(user, { fetch: fetchMock, storage }),
+    ).resolves.toBeNull();
+    expect(storage.removeItem).toHaveBeenCalledWith("quizumba.activeGameId");
+  });
+
   it("distingue falha ao obter o token anônimo", async () => {
     user.getIdToken.mockRejectedValue(new Error("token indisponível"));
 

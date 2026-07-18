@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   joinParticipantRequestSchema,
@@ -66,26 +66,10 @@ export function ParticipantJoinPanel({
   const [restoring, setRestoring] = useState(true);
   const [requestFailure, setRequestFailure] =
     useState<ParticipantRequestFailure | null>(null);
-  const sessionRoom = usePublicWaitingRoom(participant?.gameId ?? "");
-  const roomEnded = Boolean(
-    participant &&
-    (sessionRoom.room?.phase === "finished" ||
-      (!sessionRoom.loading && !sessionRoom.room && !sessionRoom.error)),
-  );
-  const moderation = useParticipantModerationStatus(
-    participant?.gameId ?? null,
-    user.uid,
-  );
-  const effectiveModerationStatus =
-    moderation.status ?? participant?.moderationStatus;
-  const activePresenceGameId =
-    effectiveModerationStatus === "removed" || roomEnded
-      ? null
-      : participant?.gameId;
-  const presence = useParticipantPresence(activePresenceGameId ?? null);
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<JoinParticipantRequest>({
     resolver: zodResolver(joinParticipantRequestSchema),
@@ -95,6 +79,40 @@ export function ParticipantJoinPanel({
       avatar: DEFAULT_PARTICIPANT_AVATAR,
     },
   });
+  const returnToParticipantEntry = useCallback(() => {
+    clearActiveParticipantSession();
+    setParticipant(null);
+    setRequestFailure(null);
+    reset({
+      gameId: "",
+      nickname: "",
+      avatar: DEFAULT_PARTICIPANT_AVATAR,
+    });
+
+    try {
+      globalThis.history?.replaceState(globalThis.history.state, "", "/");
+    } catch (error) {
+      console.error("Não foi possível limpar o endereço da sala:", error);
+    }
+  }, [reset]);
+  const sessionRoom = usePublicWaitingRoom(participant?.gameId ?? "");
+  const roomEnded = Boolean(
+    participant &&
+    (sessionRoom.room?.phase === "finished" ||
+      (!sessionRoom.loading && !sessionRoom.room && !sessionRoom.error)),
+  );
+  const moderation = useParticipantModerationStatus(
+    participant?.gameId ?? null,
+    user.uid,
+    returnToParticipantEntry,
+  );
+  const effectiveModerationStatus =
+    moderation.status ?? participant?.moderationStatus;
+  const activePresenceGameId =
+    effectiveModerationStatus === "removed" || roomEnded
+      ? null
+      : participant?.gameId;
+  const presence = useParticipantPresence(activePresenceGameId ?? null);
 
   useEffect(() => {
     let active = true;
@@ -160,6 +178,10 @@ export function ParticipantJoinPanel({
     );
   }
 
+  if (participant && effectiveModerationStatus === "removed") {
+    return null;
+  }
+
   if (participant) {
     return (
       <div className="participant-session" aria-live="polite">
@@ -211,22 +233,6 @@ export function ParticipantJoinPanel({
             <strong>Esta apresentação foi encerrada</strong>
             <p>
               A sala continua salva, mas não está recebendo participantes agora.
-            </p>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={leaveCurrentRoom}
-            >
-              Procurar outra sala
-            </button>
-          </div>
-        )}
-
-        {!roomEnded && effectiveModerationStatus === "removed" && (
-          <div className="test-result test-result-error" role="alert">
-            <strong>Você foi removido desta sala</strong>
-            <p>
-              Sua conexão com esta partida foi encerrada pelo administrador.
             </p>
             <button
               type="button"

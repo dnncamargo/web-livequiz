@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { User } from "firebase/auth";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ParticipantJoinPanel } from "./ParticipantJoinPanel";
 import { ParticipantSessionRequestError } from "./participant-session";
@@ -17,6 +18,7 @@ const joinPanelMocks = vi.hoisted(() => ({
     status: null as null | "waiting-approval" | "approved" | "removed",
     error: null as string | null,
   },
+  onRemoved: null as null | (() => void),
   publicRoom: {
     room: {
       id: "ABC234",
@@ -53,7 +55,19 @@ vi.mock("./use-participant-presence", () => ({
 }));
 
 vi.mock("./use-participant-moderation-status", () => ({
-  useParticipantModerationStatus: () => joinPanelMocks.moderation,
+  useParticipantModerationStatus: (
+    gameId: string | null,
+    _participantId: string,
+    onRemoved?: () => void,
+  ) => {
+    joinPanelMocks.onRemoved = onRemoved ?? null;
+    useEffect(() => {
+      if (gameId && joinPanelMocks.moderation.status === "removed") {
+        onRemoved?.();
+      }
+    }, [gameId, onRemoved]);
+    return joinPanelMocks.moderation;
+  },
 }));
 
 vi.mock("../live-game/use-public-waiting-room", () => ({
@@ -89,6 +103,7 @@ describe("ParticipantJoinPanel", () => {
     joinPanelMocks.presenceGameId = "";
     joinPanelMocks.moderation.status = null;
     joinPanelMocks.moderation.error = null;
+    joinPanelMocks.onRemoved = null;
     joinPanelMocks.publicRoom.room = {
       id: "ABC234",
       phase: "waiting",
@@ -155,20 +170,21 @@ describe("ParticipantJoinPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("encerra a presença quando o administrador remove o participante", async () => {
+  it("limpa a sessão e retorna ao formulário quando o participante é removido", async () => {
     joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
     joinPanelMocks.moderation.status = "removed";
 
     render(<ParticipantJoinPanel user={participantUser} />);
 
     expect(
-      await screen.findByText("Você foi removido desta sala"),
+      await screen.findByRole("button", { name: "Entrar na sala" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Entrada removida")).toBeInTheDocument();
-    expect(joinPanelMocks.presenceGameId).toBeNull();
+    expect(screen.getByLabelText("Código da sala")).toHaveValue("");
+    expect(screen.getByLabelText("Seu nickname")).toHaveValue("");
     expect(
-      screen.getByRole("button", { name: "Procurar outra sala" }),
-    ).toBeInTheDocument();
+      screen.queryByText("Você foi removido desta sala"),
+    ).not.toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBeNull();
   });
 
   it("diferencia o encerramento da sala da remoção individual", async () => {

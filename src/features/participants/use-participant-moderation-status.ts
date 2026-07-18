@@ -14,6 +14,7 @@ interface ScopedParticipantModerationState extends ParticipantModerationState {
 export function useParticipantModerationStatus(
   gameId: string | null,
   participantId: string,
+  onRemoved?: () => void,
 ): ParticipantModerationState {
   const scope = gameId ? `${gameId}:${participantId}` : "inactive";
   const [state, setState] = useState<ScopedParticipantModerationState>({
@@ -34,6 +35,10 @@ export function useParticipantModerationStatus(
       (status) => {
         if (active) {
           setState({ scope, status, error: null });
+
+          if (status === "removed") {
+            onRemoved?.();
+          }
         }
       },
       () => {
@@ -51,7 +56,7 @@ export function useParticipantModerationStatus(
       active = false;
       unsubscribe();
     };
-  }, [gameId, participantId, scope]);
+  }, [gameId, onRemoved, participantId, scope]);
 
   if (!gameId || state.scope !== scope) {
     return { status: null, error: null };

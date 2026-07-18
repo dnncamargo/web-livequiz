@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveParticipantTransactionGame } from "./firebase-admin.js";
+import {
+  isRestorableParticipant,
+  resolveParticipantTransactionGame,
+} from "./firebase-admin.js";
 
 describe("transação de entrada do participante", () => {
   const previouslyLoadedGame = {
@@ -26,5 +29,19 @@ describe("transação de entrada do participante", () => {
     expect(
       resolveParticipantTransactionGame(undefined, previouslyLoadedGame),
     ).toBeNull();
+  });
+});
+
+describe("reentrada do participante", () => {
+  it("restaura somente participantes que não foram removidos", () => {
+    expect(
+      isRestorableParticipant({ moderationStatus: "waiting-approval" }),
+    ).toBe(true);
+    expect(isRestorableParticipant({ moderationStatus: "approved" })).toBe(
+      true,
+    );
+    expect(isRestorableParticipant({ moderationStatus: "removed" })).toBe(
+      false,
+    );
   });
 });
