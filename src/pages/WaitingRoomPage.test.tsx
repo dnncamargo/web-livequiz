@@ -194,11 +194,8 @@ describe("WaitingRoomPage", () => {
     renderWaitingRoom();
 
     expect(screen.getByText("Estrela Azul")).toBeInTheDocument();
-    expect(screen.getByText("Aguardando aprovação")).toBeInTheDocument();
-    expect(screen.getByText("Conectado")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Remover Estrela Azul" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Pronto")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remover" })).toBeInTheDocument();
   });
 
   it("confirma a remoção antes de solicitar a ação administrativa", async () => {
@@ -217,12 +214,8 @@ describe("WaitingRoomPage", () => {
     };
     renderWaitingRoom();
 
-    await browserUser.click(
-      screen.getByRole("button", { name: "Remover Estrela Azul" }),
-    );
-    await browserUser.click(
-      screen.getByRole("button", { name: "Confirmar remoção" }),
-    );
+    await browserUser.click(screen.getByRole("button", { name: "Remover" }));
+    await browserUser.click(screen.getByRole("button", { name: "Confirmar?" }));
 
     expect(
       managedRoomHookMock.removeWaitingRoomParticipant,

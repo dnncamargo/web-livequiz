@@ -690,9 +690,9 @@ a:hover {
 
 .room-control-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  grid-template-columns: minmax(460px, 1.15fr) minmax(360px, 0.85fr);
   gap: 24px;
-  width: min(100%, 1240px);
+  width: min(100%, 1180px);
   margin: 0 auto;
   align-items: start;
 }
@@ -789,7 +789,7 @@ a:hover {
 .waiting-participants {
   display: grid;
   gap: 16px;
-  margin: 26px 0;
+  margin: 0;
   padding: clamp(18px, 4vw, 26px);
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 20px;
@@ -833,6 +833,17 @@ a:hover {
   background: rgb(22 11 49 / 55%);
 }
 
+.participant-list li.participant-connected {
+  border-color: rgb(85 230 165 / 55%);
+  background: rgb(85 230 165 / 10%);
+}
+
+.participant-list li.participant-disconnected {
+  border-color: rgb(197 185 214 / 32%);
+  background: rgb(197 185 214 / 7%);
+  opacity: 0.78;
+}
+
 .participant-list li > div {
   display: grid;
   gap: 4px;
@@ -853,11 +864,7 @@ a:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.removal-confirmation {
-  display: flex;
-  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .danger-button {
@@ -885,24 +892,6 @@ a:hover {
   margin: 0;
   padding: 8px 13px;
   font-size: 0.82rem;
-}
-
-.presence-badge {
-  flex: 0 0 auto;
-  padding: 7px 10px;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 900;
-}
-
-.presence-badge-connected {
-  color: #071f17;
-  background: #55e6a5;
-}
-
-.presence-badge-disconnected {
-  color: #2c2138;
-  background: #c5b9d6;
 }
 
 .test-result {
@@ -1053,7 +1042,7 @@ a:hover {
   text-transform: uppercase;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1150px) {
   .room-control-layout {
     grid-template-columns: 1fr;
   }
@@ -1117,8 +1106,7 @@ a:hover {
     flex-direction: column;
   }
 
-  .participant-list .participant-list-actions,
-  .removal-confirmation {
+  .participant-list .participant-list-actions {
     align-items: stretch;
     flex-direction: column;
     width: 100%;

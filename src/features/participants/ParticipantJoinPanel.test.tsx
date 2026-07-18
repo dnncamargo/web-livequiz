@@ -118,7 +118,7 @@ describe("ParticipantJoinPanel", () => {
     );
 
     expect(await screen.findByText("Estrela Azul")).toBeInTheDocument();
-    expect(screen.getByText("Aguardando aprovação")).toBeInTheDocument();
+    expect(screen.getByText("Pronto")).toBeInTheDocument();
     expect(joinPanelMocks.joinParticipantSession).toHaveBeenCalledWith(
       participantUser,
       { gameId: "ABC234", nickname: "Estrela Azul", avatar: "🦊" },

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { TemporaryConfirmButton } from "../components/TemporaryConfirmButton";
 import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
@@ -12,7 +13,7 @@ import {
 } from "../features/live-game/waiting-room";
 
 const MODERATION_LABELS = {
-  "waiting-approval": "Aguardando aprovação",
+  "waiting-approval": "Pronto",
   approved: "Aprovado",
   removed: "Removido",
 } as const;
@@ -21,9 +22,6 @@ export function WaitingRoomPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [participantPendingRemoval, setParticipantPendingRemoval] = useState<
-    string | null
-  >(null);
   const [removingParticipantId, setRemovingParticipantId] = useState<
     string | null
   >(null);
@@ -42,7 +40,24 @@ export function WaitingRoomPage() {
     `${publicRoomState.room?.phase ?? "missing"}:${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
   );
   const room = publicRoomState.room ?? managedRoomState.waitingRoom?.room;
-  const participants = managedRoomState.waitingRoom?.participants ?? [];
+  const participants = useMemo(
+    () =>
+      [...(managedRoomState.waitingRoom?.participants ?? [])].sort(
+        (left, right) => {
+          const presenceDifference =
+            Number(left.presenceStatus !== "connected") -
+            Number(right.presenceStatus !== "connected");
+
+          return (
+            presenceDifference ||
+            left.nickname.localeCompare(right.nickname, "pt-BR", {
+              sensitivity: "base",
+            })
+          );
+        },
+      ),
+    [managedRoomState.waitingRoom?.participants],
+  );
   const loading = publicRoomState.loading && managedRoomState.loading;
   const error = publicRoomState.error ?? managedRoomState.error;
   const presentationStatus =
@@ -62,7 +77,6 @@ export function WaitingRoomPage() {
         participantId,
         action: "remove",
       });
-      setParticipantPendingRemoval(null);
       setRefreshRevision((revision) => revision + 1);
     } catch (error) {
       console.error("Erro ao remover participante:", error);
@@ -250,7 +264,10 @@ export function WaitingRoomPage() {
           {participants.length > 0 && (
             <ul className="participant-list">
               {participants.map((participant) => (
-                <li key={participant.participantId}>
+                <li
+                  key={participant.participantId}
+                  className={`participant-${participant.presenceStatus}`}
+                >
                   <div>
                     <strong>{participant.nickname}</strong>
                     <span>
@@ -258,62 +275,25 @@ export function WaitingRoomPage() {
                     </span>
                   </div>
                   <div className="participant-list-actions">
-                    <span
-                      className={`presence-badge presence-badge-${participant.presenceStatus}`}
-                    >
-                      {participant.presenceStatus === "connected"
-                        ? "Conectado"
-                        : "Desconectado"}
-                    </span>
-
                     {room?.phase === "waiting" &&
                       participant.moderationStatus !== "removed" &&
-                      participantPendingRemoval !==
-                        participant.participantId && (
+                      (removingParticipantId === participant.participantId ? (
                         <button
                           type="button"
                           className="danger-button compact-button"
-                          onClick={() =>
-                            setParticipantPendingRemoval(
-                              participant.participantId,
-                            )
-                          }
+                          disabled
                         >
-                          Remover {participant.nickname}
+                          Removendo...
                         </button>
-                      )}
-
-                    {participantPendingRemoval ===
-                      participant.participantId && (
-                      <div className="removal-confirmation">
-                        <button
-                          type="button"
+                      ) : (
+                        <TemporaryConfirmButton
                           className="danger-button compact-button"
-                          disabled={
-                            removingParticipantId === participant.participantId
+                          idleLabel="Remover"
+                          onConfirm={() =>
+                            confirmParticipantRemoval(participant.participantId)
                           }
-                          onClick={() =>
-                            void confirmParticipantRemoval(
-                              participant.participantId,
-                            )
-                          }
-                        >
-                          {removingParticipantId === participant.participantId
-                            ? "Removendo..."
-                            : "Confirmar remoção"}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button compact-button"
-                          disabled={
-                            removingParticipantId === participant.participantId
-                          }
-                          onClick={() => setParticipantPendingRemoval(null)}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
+                        />
+                      ))}
                   </div>
                 </li>
               ))}

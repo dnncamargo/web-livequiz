@@ -42,7 +42,7 @@ function getParticipantRequestFailure(
 }
 
 const MODERATION_STATUS_LABELS = {
-  "waiting-approval": "Aguardando aprovação",
+  "waiting-approval": "Pronto",
   approved: "Entrada aprovada",
   removed: "Entrada removida",
 } as const;
