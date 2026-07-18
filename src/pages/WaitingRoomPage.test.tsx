@@ -148,8 +148,8 @@ describe("WaitingRoomPage", () => {
     expect(managedRoomHookMock.gameId).toBe("ABC234");
     expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
     expect(
-      screen.getByRole("link", { name: "Abrir página do participante" }),
-    ).toHaveAttribute("href", "/?join=ABC234");
+      screen.queryByRole("link", { name: /Abrir página do participante/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("informa quando a sala não existe", () => {

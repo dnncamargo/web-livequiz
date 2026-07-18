@@ -62,6 +62,7 @@ describe("HomePage", () => {
     authMock.value.administratorAuthorizationStatus = "not-applicable";
     authMock.value.authErrorMessage = null;
     authMock.value.signInParticipant.mockReset().mockResolvedValue(undefined);
+    authMock.value.signInAdministrator.mockReset().mockResolvedValue(undefined);
     authMock.value.logout.mockReset().mockResolvedValue(undefined);
     publicRoomMock.gameId = "";
     publicRoomMock.state.room = null;

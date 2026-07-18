@@ -683,6 +683,42 @@ a:hover {
   width: min(100%, 820px);
 }
 
+.waiting-room-page {
+  display: block;
+  padding: 32px;
+}
+
+.room-control-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+  gap: 24px;
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  align-items: start;
+}
+
+.room-control-main,
+.room-lifecycle-card,
+.waiting-participants {
+  width: 100%;
+  margin: 0;
+}
+
+.room-control-main,
+.room-lifecycle-card {
+  text-align: center;
+}
+
+.room-lifecycle-card {
+  grid-column: 1;
+  padding: clamp(28px, 4vw, 44px);
+}
+
+.waiting-participants {
+  grid-column: 2;
+  grid-row: span 2;
+}
+
 .room-code-panel {
   display: grid;
   gap: 10px;
@@ -1017,6 +1053,18 @@ a:hover {
   text-transform: uppercase;
 }
 
+@media (max-width: 980px) {
+  .room-control-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .waiting-participants,
+  .room-lifecycle-card {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 @media (max-width: 700px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -1044,6 +1092,10 @@ a:hover {
     align-items: center;
     justify-content: space-between;
     margin-top: 0;
+  }
+
+  .waiting-room-page {
+    padding: 16px;
   }
 
   .diagnostic-summary {

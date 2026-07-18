@@ -175,41 +175,43 @@ export function WaitingRoomPage() {
   }
 
   return (
-    <main className="page">
-      <section className="card waiting-room-card">
-        <span className="eyebrow">Gerenciamento da sala</span>
-        <h1>{room.name ?? `Sala ${room.id}`}</h1>
+    <main className="page waiting-room-page">
+      <div className="room-control-layout">
+        <section className="card waiting-room-card room-control-main">
+          <span className="eyebrow">Gerenciamento da sala</span>
+          <h1>{room.name ?? `Sala ${room.id}`}</h1>
 
-        <div className="room-code-panel">
-          <span>Código da sala</span>
-          <strong className="room-code" aria-label={`Código ${room.id}`}>
-            {room.id}
-          </strong>
-        </div>
+          <div className="room-code-panel">
+            <span>Código da sala</span>
+            <strong className="room-code" aria-label={`Código ${room.id}`}>
+              {room.id}
+            </strong>
+          </div>
 
-        <div className="room-summary" aria-label="Resumo da sala">
-          <div>
-            <span>Fase</span>
-            <strong>
-              {room?.phase === "waiting"
-                ? "Aguardando participantes"
-                : "Finalizada"}
-            </strong>
+          <div className="room-summary" aria-label="Resumo da sala">
+            <div>
+              <span>Fase</span>
+              <strong>
+                {room?.phase === "waiting"
+                  ? "Aguardando participantes"
+                  : "Finalizada"}
+              </strong>
+            </div>
+            <div>
+              <span>Apresentação</span>
+              <strong>
+                {presentationStatus === "active" ? "Ativa" : "Inativa"}
+              </strong>
+            </div>
+            <div>
+              <span>Participantes</span>
+              <strong>
+                {managedRoomState.waitingRoom?.room.participantCount ??
+                  room.participantCount}
+              </strong>
+            </div>
           </div>
-          <div>
-            <span>Apresentação</span>
-            <strong>
-              {presentationStatus === "active" ? "Ativa" : "Inativa"}
-            </strong>
-          </div>
-          <div>
-            <span>Participantes</span>
-            <strong>
-              {managedRoomState.waitingRoom?.room.participantCount ??
-                room.participantCount}
-            </strong>
-          </div>
-        </div>
+        </section>
 
         <section
           className="waiting-participants"
@@ -319,81 +321,80 @@ export function WaitingRoomPage() {
           )}
         </section>
 
-        <p>
-          Apresentar permite novas entradas. Encerrar finaliza somente a
-          apresentação; a sala continua disponível para uso futuro.
-        </p>
+        <section className="card room-lifecycle-card">
+          <p>
+            Apresentar permite novas entradas. Encerrar finaliza somente a
+            apresentação; a sala continua disponível para uso futuro.
+          </p>
 
-        <section
-          className="room-danger-zone"
-          aria-labelledby="close-room-title"
-        >
-          <div>
-            <strong id="close-room-title">Ciclo da sala</strong>
-            <span>Apresente, encerre a apresentação ou arquive esta sala.</span>
-          </div>
-
-          <button
-            type="button"
-            className="primary-button compact-button"
-            disabled={processingRoom}
-            onClick={() => void handlePresentRoom()}
+          <section
+            className="room-danger-zone"
+            aria-labelledby="close-room-title"
           >
-            {processingRoom ? "Processando..." : "Apresentar"}
-          </button>
+            <div>
+              <strong id="close-room-title">Ciclo da sala</strong>
+              <span>
+                Apresente, encerre a apresentação ou arquive esta sala.
+              </span>
+            </div>
 
-          {presentationStatus === "active" && !confirmingRoomClosure && (
             <button
               type="button"
-              className="danger-button"
-              onClick={() => setConfirmingRoomClosure(true)}
+              className="primary-button compact-button"
+              disabled={processingRoom}
+              onClick={() => void handlePresentRoom()}
             >
-              Encerrar
+              {processingRoom ? "Processando..." : "Apresentar"}
             </button>
-          )}
 
-          {confirmingRoomClosure && (
-            <div className="room-closure-confirmation">
-              <span>
-                A apresentação será finalizada; a sala continuará aguardando
-                participantes.
-              </span>
-              <div>
-                <button
-                  type="button"
-                  className="danger-button compact-button"
-                  disabled={endingRoom}
-                  onClick={() => void confirmRoomClosure()}
-                >
-                  {endingRoom ? "Encerrando..." : "Confirmar encerramento"}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button compact-button"
-                  disabled={endingRoom}
-                  onClick={() => setConfirmingRoomClosure(false)}
-                >
-                  Manter apresentação
-                </button>
+            {presentationStatus === "active" && !confirmingRoomClosure && (
+              <button
+                type="button"
+                className="danger-button"
+                onClick={() => setConfirmingRoomClosure(true)}
+              >
+                Encerrar
+              </button>
+            )}
+
+            {confirmingRoomClosure && (
+              <div className="room-closure-confirmation">
+                <span>
+                  A apresentação será finalizada; a sala continuará aguardando
+                  participantes.
+                </span>
+                <div>
+                  <button
+                    type="button"
+                    className="danger-button compact-button"
+                    disabled={endingRoom}
+                    onClick={() => void confirmRoomClosure()}
+                  >
+                    {endingRoom ? "Encerrando..." : "Confirmar encerramento"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    disabled={endingRoom}
+                    onClick={() => setConfirmingRoomClosure(false)}
+                  >
+                    Manter apresentação
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <button
-            type="button"
-            className="secondary-button compact-button"
-            disabled={processingRoom}
-            onClick={() => void handleArchiveRoom()}
-          >
-            Arquivar
-          </button>
+            <button
+              type="button"
+              className="secondary-button compact-button"
+              disabled={processingRoom}
+              onClick={() => void handleArchiveRoom()}
+            >
+              Arquivar
+            </button>
+          </section>
         </section>
-
-        <nav className="navigation">
-          <Link to="/admin">Voltar à biblioteca de salas</Link>
-          <Link to={`/?join=${room.id}`}>Abrir página do participante</Link>
-        </nav>
-      </section>
+      </div>
     </main>
   );
 }

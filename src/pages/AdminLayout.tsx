@@ -9,7 +9,7 @@ export function AdminLayout() {
       <aside className="admin-sidebar" aria-label="Navegação administrativa">
         <div>
           <span className="eyebrow">Quizumba</span>
-          <strong>Administração</strong>
+          <strong>Painel de Controle</strong>
         </div>
 
         <nav>

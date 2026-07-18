@@ -15,6 +15,7 @@ export function AdminLoginPage() {
     administratorAuthorizationStatus,
     authErrorMessage,
     signInAdministrator,
+    signInParticipant,
     refreshAdministratorAuthorization,
     logout,
   } = useAuth();
@@ -59,6 +60,22 @@ export function AdminLoginPage() {
     } catch (error) {
       console.error("Erro ao encerrar sessão:", error);
       setErrorMessage("Não foi possível encerrar a sessão. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleParticipantLogin() {
+    setSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await signInParticipant();
+    } catch (error) {
+      console.error("Erro ao entrar como participante:", error);
+      setErrorMessage(
+        "Não foi possível entrar como participante. Tente novamente.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -147,6 +164,15 @@ export function AdminLoginPage() {
             onClick={handleLogout}
           >
             {submitting ? "Saindo..." : "Usar outra conta"}
+          </button>
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={submitting}
+            onClick={() => void handleParticipantLogin()}
+          >
+            {submitting ? "Entrando..." : "Entrar como participante"}
           </button>
 
           {errorMessage && (

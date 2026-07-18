@@ -149,7 +149,7 @@ export function ManagementPage() {
       <section className="card management-library-card">
         <header className="management-header">
           <div>
-            <span className="eyebrow">Gerenciamento</span>
+            <span className="eyebrow">Painel de Controle</span>
             <h1>Salas do Quizumba</h1>
             <p>Crie, apresente, finalize ou arquive suas salas de quiz.</p>
           </div>
