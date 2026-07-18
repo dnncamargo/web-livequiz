@@ -101,11 +101,11 @@ function buildRoom(overrides: Partial<Room> = {}): Room {
 
 function renderWaitingRoom() {
   return render(
-    <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
+    <MemoryRouter initialEntries={["/admin/room/ABC234"]}>
       <Routes>
-        <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        <Route path="/gerenciar" element={<p>Biblioteca de salas</p>} />
-        <Route path="/apresentacao" element={<p>Apresentação aberta</p>} />
+        <Route path="/admin/room/:id" element={<WaitingRoomPage />} />
+        <Route path="/admin" element={<p>Biblioteca de salas</p>} />
+        <Route path="/" element={<p>Apresentação aberta</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -149,7 +149,7 @@ describe("WaitingRoomPage", () => {
     expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
     expect(
       screen.getByRole("link", { name: "Abrir página do participante" }),
-    ).toHaveAttribute("href", "/?sala=ABC234");
+    ).toHaveAttribute("href", "/?join=ABC234");
   });
 
   it("informa quando a sala não existe", () => {
@@ -167,9 +167,9 @@ describe("WaitingRoomPage", () => {
     expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
     roomHookMock.state.room = buildRoom({ participantCount: 1 });
     view.rerender(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
+      <MemoryRouter initialEntries={["/admin/room/ABC234"]}>
         <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
+          <Route path="/admin/room/:id" element={<WaitingRoomPage />} />
         </Routes>
       </MemoryRouter>,
     );

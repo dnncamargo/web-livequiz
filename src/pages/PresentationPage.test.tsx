@@ -38,7 +38,7 @@ describe("PresentationPage", () => {
 
   it("apresenta nome, participantes e avatares da projeção pública", () => {
     render(
-      <MemoryRouter initialEntries={["/apresentacao?sala=ABC234"]}>
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
         <PresentationPage />
       </MemoryRouter>,
     );

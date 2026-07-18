@@ -84,14 +84,11 @@ describe("ManagementPage", () => {
 
   function renderManagement() {
     return render(
-      <MemoryRouter initialEntries={["/gerenciar"]}>
+      <MemoryRouter initialEntries={["/admin"]}>
         <Routes>
-          <Route path="/gerenciar" element={<ManagementPage />} />
-          <Route
-            path="/gerenciar/sala/:id"
-            element={<p>Sala ABC234 aberta</p>}
-          />
-          <Route path="/apresentacao" element={<p>Apresentação aberta</p>} />
+          <Route path="/admin" element={<ManagementPage />} />
+          <Route path="/admin/room/:id" element={<p>Sala ABC234 aberta</p>} />
+          <Route path="/" element={<p>Apresentação aberta</p>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -130,7 +127,7 @@ describe("ManagementPage", () => {
     expect(screen.getByText("ABC234")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Gerenciar" })).toHaveAttribute(
       "href",
-      "/gerenciar/sala/ABC234",
+      "/admin/room/ABC234",
     );
     expect(
       screen.getByRole("button", { name: "Apresentar" }),

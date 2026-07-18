@@ -66,6 +66,67 @@ a:hover {
   place-items: center;
 }
 
+.admin-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 250px minmax(0, 1fr);
+  background: #110b2e;
+}
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  padding: 32px 20px;
+  border-right: 1px solid rgb(255 255 255 / 12%);
+  background: rgb(6 3 20 / 42%);
+}
+
+.admin-sidebar > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-sidebar > div:first-child strong {
+  color: #ffffff;
+  font-size: 1.3rem;
+}
+
+.admin-sidebar nav {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-sidebar nav a {
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: rgb(255 255 255 / 72%);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-sidebar nav a.active,
+.admin-sidebar nav a:hover {
+  color: #ffffff;
+  background: rgb(255 255 255 / 12%);
+}
+
+.admin-sidebar-account {
+  display: grid;
+  gap: 12px;
+  margin-top: auto;
+  color: rgb(255 255 255 / 68%);
+  font-size: 0.88rem;
+}
+
+.admin-content {
+  min-width: 0;
+}
+
+.admin-content .page {
+  min-height: 100vh;
+}
+
 .card {
   width: min(100%, 720px);
   padding: clamp(28px, 6vw, 64px);
@@ -957,6 +1018,34 @@ a:hover {
 }
 
 @media (max-width: 700px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    gap: 16px;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid rgb(255 255 255 / 12%);
+  }
+
+  .admin-sidebar nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-sidebar nav a {
+    padding: 10px 6px;
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .admin-sidebar-account {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0;
+  }
+
   .diagnostic-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

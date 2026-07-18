@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
-import { getAuthErrorMessage } from "../features/auth/auth-errors";
 import { useManagedWaitingRooms } from "../features/live-game/use-managed-waiting-rooms";
 import {
   archiveWaitingRoom,
@@ -17,11 +16,10 @@ import {
 } from "../shared/waiting-room";
 
 export function ManagementPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [newRoomName, setNewRoomName] = useState("");
   const [creatingRoom, setCreatingRoom] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [roomPendingClosure, setRoomPendingClosure] = useState<string | null>(
     null,
   );
@@ -33,7 +31,6 @@ export function ManagementPage() {
     >({});
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [roomActionError, setRoomActionError] = useState("");
-  const [accountError, setAccountError] = useState("");
   const roomLibrary = useManagedWaitingRooms(user, refreshRevision);
   const activeRooms = roomLibrary.rooms
     .filter(({ id }) => !archivedRoomIds.includes(id))
@@ -57,7 +54,7 @@ export function ManagementPage() {
 
     try {
       const room = await createWaitingRoom(user, { name: newRoomName });
-      navigate(`/gerenciar/sala/${room.id}`);
+      navigate(`/admin/room/${room.id}`);
     } catch (error) {
       console.error("Erro ao criar sala:", error);
       setRoomActionError(
@@ -83,7 +80,7 @@ export function ManagementPage() {
         ...statuses,
         [gameId]: "active",
       }));
-      navigate(`/apresentacao?sala=${gameId}`);
+      navigate(`/?room=${gameId}`);
     } catch (error) {
       console.error("Erro ao apresentar sala:", error);
       setRoomActionError(
@@ -147,25 +144,6 @@ export function ManagementPage() {
     }
   }
 
-  async function handleLogout() {
-    setLoggingOut(true);
-    setAccountError("");
-
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Erro ao sair da conta administrativa:", error);
-      setAccountError(
-        getAuthErrorMessage(
-          error,
-          "Não foi possível sair da conta. Tente novamente.",
-        ),
-      );
-    } finally {
-      setLoggingOut(false);
-    }
-  }
-
   return (
     <main className="page management-page">
       <section className="card management-library-card">
@@ -175,8 +153,6 @@ export function ManagementPage() {
             <h1>Salas do Quizumba</h1>
             <p>Crie, apresente, finalize ou arquive suas salas de quiz.</p>
           </div>
-
-          <Link to="/gerenciar/salas-arquivadas">Salas arquivadas</Link>
         </header>
 
         <form className="room-creation-form" onSubmit={handleCreateWaitingRoom}>
@@ -257,7 +233,7 @@ export function ManagementPage() {
                   <div className="room-library-actions">
                     <Link
                       className="secondary-button compact-button"
-                      to={`/gerenciar/sala/${room.id}`}
+                      to={`/admin/room/${room.id}`}
                     >
                       Gerenciar
                     </Link>
@@ -321,38 +297,6 @@ export function ManagementPage() {
             </ul>
           )}
         </section>
-
-        <aside
-          className="administrator-account"
-          aria-label="Conta administrativa"
-        >
-          <div>
-            <span>Conta administrativa</span>
-            <strong>{user?.displayName ?? user?.email ?? user?.uid}</strong>
-            <small>Sair da conta não altera suas salas.</small>
-          </div>
-
-          <button
-            type="button"
-            className="secondary-button compact-button"
-            disabled={loggingOut}
-            onClick={handleLogout}
-          >
-            {loggingOut ? "Saindo da conta..." : "Sair da conta"}
-          </button>
-        </aside>
-
-        {accountError && (
-          <div className="test-result test-result-error" role="alert">
-            <strong>Não foi possível sair da conta</strong>
-            <p>{accountError}</p>
-          </div>
-        )}
-
-        <nav className="navigation">
-          <Link to="/firebase-test">Testar Firebase</Link>
-          <Link to="/">Página inicial</Link>
-        </nav>
       </section>
     </main>
   );

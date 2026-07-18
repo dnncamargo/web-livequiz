@@ -42,13 +42,10 @@ vi.mock("../features/live-game/waiting-room", () => ({
 
 function renderArchivedRooms() {
   return render(
-    <MemoryRouter initialEntries={["/gerenciar/salas-arquivadas"]}>
+    <MemoryRouter initialEntries={["/admin/archive"]}>
       <Routes>
-        <Route
-          path="/gerenciar/salas-arquivadas"
-          element={<ArchivedRoomsPage />}
-        />
-        <Route path="/gerenciar" element={<p>Biblioteca de salas</p>} />
+        <Route path="/admin/archive" element={<ArchivedRoomsPage />} />
+        <Route path="/admin" element={<p>Biblioteca de salas</p>} />
       </Routes>
     </MemoryRouter>,
   );

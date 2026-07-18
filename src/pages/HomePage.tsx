@@ -20,7 +20,8 @@ export function HomePage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const requestedGameId = searchParams.get("sala") ?? "";
+  const requestedGameId =
+    searchParams.get("join") ?? searchParams.get("sala") ?? "";
   const gameIdResult = participantGameCodeSchema.safeParse(requestedGameId);
   const linkedGameId = gameIdResult.success ? gameIdResult.data : "";
   const linkedRoomState = usePublicWaitingRoom(linkedGameId);
@@ -159,7 +160,7 @@ export function HomePage() {
             </div>
 
             <nav className="navigation">
-              <Link to="/gerenciar">Abrir gerenciamento</Link>
+              <Link to="/admin">Abrir gerenciamento</Link>
             </nav>
 
             <button
@@ -199,7 +200,7 @@ export function HomePage() {
         )}
 
         <nav className="navigation">
-          <Link to="/login">Administração</Link>
+          <Link to="/admin">Administração</Link>
         </nav>
       </section>
     </main>

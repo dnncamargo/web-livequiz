@@ -106,4 +106,15 @@ describe("rotas administrativas", () => {
     expect(screen.getByText("Login administrativo")).toBeInTheDocument();
     expect(screen.queryByText("Salas arquivadas")).not.toBeInTheDocument();
   });
+
+  it("abre a apresentação pública pela raiz com o código da sala", () => {
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Apresentação")).toBeInTheDocument();
+    expect(screen.queryByText("Página inicial")).not.toBeInTheDocument();
+  });
 });

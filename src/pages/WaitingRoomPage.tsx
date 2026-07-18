@@ -112,7 +112,7 @@ export function WaitingRoomPage() {
     try {
       await presentWaitingRoom(user, { gameId: id, action: "present-room" });
       setPresentationStatusOverride("active");
-      navigate(`/apresentacao?sala=${id}`);
+      navigate(`/?room=${id}`);
     } catch (error) {
       console.error("Erro ao apresentar sala:", error);
       setParticipantActionError(
@@ -134,7 +134,7 @@ export function WaitingRoomPage() {
 
     try {
       await archiveWaitingRoom(user, { gameId: id, action: "archive-room" });
-      navigate("/gerenciar");
+      navigate("/admin");
     } catch (error) {
       console.error("Erro ao arquivar sala:", error);
       setParticipantActionError(
@@ -168,7 +168,7 @@ export function WaitingRoomPage() {
             <strong>Não foi possível abrir esta sala</strong>
             <p>{error ?? "A sala não existe ou já foi encerrada."}</p>
           </div>
-          <Link to="/gerenciar">Voltar ao gerenciamento</Link>
+          <Link to="/admin">Voltar ao gerenciamento</Link>
         </section>
       </main>
     );
@@ -390,8 +390,8 @@ export function WaitingRoomPage() {
         </section>
 
         <nav className="navigation">
-          <Link to="/gerenciar">Voltar à biblioteca de salas</Link>
-          <Link to={`/?sala=${room.id}`}>Abrir página do participante</Link>
+          <Link to="/admin">Voltar à biblioteca de salas</Link>
+          <Link to={`/?join=${room.id}`}>Abrir página do participante</Link>
         </nav>
       </section>
     </main>

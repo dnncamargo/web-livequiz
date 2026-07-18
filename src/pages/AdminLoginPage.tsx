@@ -23,7 +23,7 @@ export function AdminLoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const location = useLocation();
   const state = location.state as LoginLocationState | null;
-  const destination = state?.from ?? "/gerenciar";
+  const destination = state?.from ?? "/admin";
 
   async function handleGoogleLogin() {
     setSubmitting(true);

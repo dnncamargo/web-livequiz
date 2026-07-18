@@ -139,7 +139,7 @@ describe("HomePage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/?sala=abc234"]}>
+      <MemoryRouter initialEntries={["/?join=abc234"]}>
         <HomePage />
       </MemoryRouter>,
     );
@@ -160,7 +160,7 @@ describe("HomePage", () => {
     };
 
     render(
-      <MemoryRouter initialEntries={["/?sala=ABC234"]}>
+      <MemoryRouter initialEntries={["/?join=ABC234"]}>
         <HomePage />
       </MemoryRouter>,
     );

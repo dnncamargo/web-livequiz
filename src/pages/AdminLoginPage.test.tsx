@@ -33,7 +33,7 @@ function renderLogin() {
     <MemoryRouter initialEntries={["/login"]}>
       <Routes>
         <Route path="/login" element={<AdminLoginPage />} />
-        <Route path="/gerenciar" element={<p>Painel autorizado</p>} />
+        <Route path="/admin" element={<p>Painel autorizado</p>} />
       </Routes>
     </MemoryRouter>,
   );

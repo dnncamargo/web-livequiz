@@ -5,7 +5,7 @@ import { waitingRoomCodeSchema } from "../shared/waiting-room";
 export function PresentationPage() {
   const [searchParams] = useSearchParams();
   const gameIdResult = waitingRoomCodeSchema.safeParse(
-    searchParams.get("sala") ?? "",
+    searchParams.get("room") ?? searchParams.get("sala") ?? "",
   );
   const gameId = gameIdResult.success ? gameIdResult.data : "";
   const roomState = usePublicWaitingRoom(gameId);
@@ -82,7 +82,7 @@ export function PresentationPage() {
         )}
 
         <nav className="navigation">
-          <Link to="/gerenciar">Voltar às salas</Link>
+          <Link to="/admin">Voltar às salas</Link>
           <Link to="/">Página inicial</Link>
         </nav>
       </section>

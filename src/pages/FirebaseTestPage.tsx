@@ -153,7 +153,7 @@ export function FirebaseTestPage() {
         </div>
 
         <nav className="navigation">
-          <Link to="/gerenciar">Voltar ao gerenciamento</Link>
+          <Link to="/admin">Voltar ao gerenciamento</Link>
           <Link to="/">Página inicial</Link>
         </nav>
       </section>

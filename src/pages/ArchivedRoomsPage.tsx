@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { useArchivedWaitingRooms } from "../features/live-game/use-archived-waiting-rooms";
 import {
@@ -41,7 +41,7 @@ export function ArchivedRoomsPage() {
 
     try {
       await restoreWaitingRoom(user, { gameId, action: "restore-room" });
-      navigate("/gerenciar");
+      navigate("/admin");
     } catch (error) {
       console.error("Erro ao restaurar sala:", error);
       setErrorMessage(
@@ -90,7 +90,6 @@ export function ArchivedRoomsPage() {
             <h1>Salas arquivadas</h1>
             <p>Restaure uma sala ou exclua definitivamente seus dados.</p>
           </div>
-          <Link to="/gerenciar">Voltar às salas</Link>
         </header>
 
         {errorMessage && (

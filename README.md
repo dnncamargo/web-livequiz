@@ -130,14 +130,14 @@ Sair da conta administrativa não altera nenhuma sala.
 Criar, Apresentar e Arquivar são ações diretas. Encerrar, Restaurar e Excluir
 exigem confirmação na interface.
 
-O link `/?sala=CODIGO` confirma publicamente a sala ativa e preenche o código
+O link `/?join=CODIGO` confirma publicamente a sala ativa e preenche o código
 de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
 uma janela anônima, outro perfil ou outro dispositivo para testar o participante
 sem encerrar a sessão administrativa.
 
 ## Diagnóstico de conexões
 
-A rota administrativa `/firebase-test` executa verificações independentes de
+A rota administrativa `/admin/firebase-test` executa verificações independentes de
 rede, sessão Google, token, Firestore, Realtime Database, função da Vercel e
 Firebase Admin. A verificação do servidor usa `/api/diagnostics` e retorna
 orientações seguras por camada, sem revelar credenciais.
