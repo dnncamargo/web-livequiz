@@ -23,6 +23,10 @@ vi.mock("./pages/AdminLoginPage", () => ({
   AdminLoginPage: () => <p>Login administrativo</p>,
 }));
 
+vi.mock("./pages/ArchivedRoomsPage", () => ({
+  ArchivedRoomsPage: () => <p>Salas arquivadas</p>,
+}));
+
 vi.mock("./pages/FirebaseTestPage", () => ({
   FirebaseTestPage: () => <p>Diagnóstico privado</p>,
 }));
@@ -90,5 +94,16 @@ describe("rotas administrativas", () => {
 
     expect(screen.getByText("Login administrativo")).toBeInTheDocument();
     expect(screen.queryByText("Sala administrativa")).not.toBeInTheDocument();
+  });
+
+  it("protege a biblioteca de salas arquivadas", () => {
+    render(
+      <MemoryRouter initialEntries={["/gerenciar/salas-arquivadas"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Login administrativo")).toBeInTheDocument();
+    expect(screen.queryByText("Salas arquivadas")).not.toBeInTheDocument();
   });
 });

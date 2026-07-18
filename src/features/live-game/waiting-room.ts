@@ -9,15 +9,31 @@ import {
 } from "../../shared/participant";
 import {
   apiErrorResponseSchema,
+  archiveWaitingRoomRequestSchema,
+  archivedWaitingRoomLibraryResponseSchema,
+  archivedWaitingRoomMutationResponseSchema,
+  createWaitingRoomRequestSchema,
   createWaitingRoomResponseSchema,
+  deleteArchivedWaitingRoomRequestSchema,
+  deleteArchivedWaitingRoomResponseSchema,
   endWaitingRoomRequestSchema,
-  endWaitingRoomResponseSchema,
+  presentWaitingRoomRequestSchema,
   publicWaitingRoomSchema,
+  restoreWaitingRoomRequestSchema,
   waitingRoomLibraryResponseSchema,
+  waitingRoomMutationResponseSchema,
   waitingRoomCodeSchema,
+  type ArchiveWaitingRoomRequest,
+  type ArchivedWaitingRoom,
+  type CreateWaitingRoomRequest,
+  type DeleteArchivedWaitingRoomRequest,
   type EndWaitingRoomRequest,
+  type PresentWaitingRoomRequest,
   type PublicWaitingRoom,
+  type RestoreWaitingRoomRequest,
 } from "../../shared/waiting-room";
+
+type AdministratorUser = Pick<User, "getIdToken">;
 
 export class WaitingRoomRequestError extends Error {
   readonly code: string;
@@ -49,14 +65,18 @@ async function readApiPayload(response: Response): Promise<unknown> {
   }
 }
 
-export async function createWaitingRoom(
-  user: Pick<User, "getIdToken">,
-): Promise<PublicWaitingRoom> {
+async function requestApi(
+  user: AdministratorUser,
+  input: RequestInfo | URL,
+  init: RequestInit,
+  fallbackMessage: string,
+): Promise<unknown> {
   const idToken = await user.getIdToken();
-  const response = await fetch("/api/games", {
-    method: "POST",
+  const response = await fetch(input, {
+    ...init,
     headers: {
       authorization: `Bearer ${idToken}`,
+      ...init.headers,
     },
   });
   const payload = await readApiPayload(response);
@@ -66,12 +86,45 @@ export async function createWaitingRoom(
 
     throw new WaitingRoomRequestError(
       errorResult.success ? errorResult.data.error.code : "request-failed",
-      errorResult.success
-        ? errorResult.data.error.message
-        : "Não foi possível criar a sala. Tente novamente.",
+      errorResult.success ? errorResult.data.error.message : fallbackMessage,
     );
   }
 
+  return payload;
+}
+
+async function mutateWaitingRoom(
+  user: AdministratorUser,
+  input: object,
+  fallbackMessage: string,
+): Promise<unknown> {
+  return requestApi(
+    user,
+    "/api/games",
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    fallbackMessage,
+  );
+}
+
+export async function createWaitingRoom(
+  user: AdministratorUser,
+  input: CreateWaitingRoomRequest,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = createWaitingRoomRequestSchema.parse(input);
+  const payload = await requestApi(
+    user,
+    "/api/games",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(parsedInput),
+    },
+    "Não foi possível criar a sala. Tente novamente.",
+  );
   const result = createWaitingRoomResponseSchema.safeParse(payload);
 
   if (!result.success) {
@@ -85,28 +138,16 @@ export async function createWaitingRoom(
 }
 
 export async function getManagedWaitingRoom(
-  user: Pick<User, "getIdToken">,
+  user: AdministratorUser,
   gameId?: string,
 ): Promise<ManagedWaitingRoom> {
-  const idToken = await user.getIdToken();
   const query = gameId ? `?gameId=${encodeURIComponent(gameId)}` : "";
-  const response = await fetch(`/api/games${query}`, {
-    method: "GET",
-    headers: { authorization: `Bearer ${idToken}` },
-  });
-  const payload = await readApiPayload(response);
-
-  if (!response.ok) {
-    const errorResult = apiErrorResponseSchema.safeParse(payload);
-
-    throw new WaitingRoomRequestError(
-      errorResult.success ? errorResult.data.error.code : "request-failed",
-      errorResult.success
-        ? errorResult.data.error.message
-        : "Não foi possível consultar a sala. Tente novamente.",
-    );
-  }
-
+  const payload = await requestApi(
+    user,
+    `/api/games${query}`,
+    { method: "GET" },
+    "Não foi possível consultar a sala. Tente novamente.",
+  );
   const result = managedWaitingRoomResponseSchema.safeParse(payload);
 
   if (!result.success) {
@@ -120,26 +161,14 @@ export async function getManagedWaitingRoom(
 }
 
 export async function getManagedWaitingRooms(
-  user: Pick<User, "getIdToken">,
+  user: AdministratorUser,
 ): Promise<PublicWaitingRoom[]> {
-  const idToken = await user.getIdToken();
-  const response = await fetch("/api/games?scope=library", {
-    method: "GET",
-    headers: { authorization: `Bearer ${idToken}` },
-  });
-  const payload = await readApiPayload(response);
-
-  if (!response.ok) {
-    const errorResult = apiErrorResponseSchema.safeParse(payload);
-
-    throw new WaitingRoomRequestError(
-      errorResult.success ? errorResult.data.error.code : "request-failed",
-      errorResult.success
-        ? errorResult.data.error.message
-        : "Não foi possível consultar a biblioteca de salas.",
-    );
-  }
-
+  const payload = await requestApi(
+    user,
+    "/api/games?scope=library",
+    { method: "GET" },
+    "Não foi possível consultar a biblioteca de salas.",
+  );
   const result = waitingRoomLibraryResponseSchema.safeParse(payload);
 
   if (!result.success) {
@@ -152,72 +181,143 @@ export async function getManagedWaitingRooms(
   return result.data.rooms;
 }
 
-export async function endWaitingRoom(
-  user: Pick<User, "getIdToken">,
-  input: EndWaitingRoomRequest,
-): Promise<string> {
-  const parsedInput = endWaitingRoomRequestSchema.parse(input);
-  const idToken = await user.getIdToken();
-  const response = await fetch("/api/games", {
-    method: "PATCH",
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(parsedInput),
-  });
-  const payload = await readApiPayload(response);
-
-  if (!response.ok) {
-    const errorResult = apiErrorResponseSchema.safeParse(payload);
-
-    throw new WaitingRoomRequestError(
-      errorResult.success ? errorResult.data.error.code : "request-failed",
-      errorResult.success
-        ? errorResult.data.error.message
-        : "Não foi possível encerrar a sala. Tente novamente.",
-    );
-  }
-
-  const result = endWaitingRoomResponseSchema.safeParse(payload);
+export async function getArchivedWaitingRooms(
+  user: AdministratorUser,
+): Promise<ArchivedWaitingRoom[]> {
+  const payload = await requestApi(
+    user,
+    "/api/games?scope=archived",
+    { method: "GET" },
+    "Não foi possível consultar as salas arquivadas.",
+  );
+  const result = archivedWaitingRoomLibraryResponseSchema.safeParse(payload);
 
   if (!result.success) {
     throw new WaitingRoomRequestError(
       "invalid-response",
-      "O servidor retornou dados inválidos ao encerrar a sala.",
+      "O servidor retornou dados inválidos para as salas arquivadas.",
     );
   }
 
-  return result.data.endedGameId;
+  return result.data.rooms;
+}
+
+async function changeWaitingRoomPhase(
+  user: AdministratorUser,
+  input: EndWaitingRoomRequest | PresentWaitingRoomRequest,
+  fallbackMessage: string,
+): Promise<PublicWaitingRoom> {
+  const payload = await mutateWaitingRoom(user, input, fallbackMessage);
+  const result = waitingRoomMutationResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao alterar a apresentação.",
+    );
+  }
+
+  return result.data.room;
+}
+
+export function endWaitingRoom(
+  user: AdministratorUser,
+  input: EndWaitingRoomRequest,
+): Promise<PublicWaitingRoom> {
+  return changeWaitingRoomPhase(
+    user,
+    endWaitingRoomRequestSchema.parse(input),
+    "Não foi possível encerrar a apresentação. Tente novamente.",
+  );
+}
+
+export function presentWaitingRoom(
+  user: AdministratorUser,
+  input: PresentWaitingRoomRequest,
+): Promise<PublicWaitingRoom> {
+  return changeWaitingRoomPhase(
+    user,
+    presentWaitingRoomRequestSchema.parse(input),
+    "Não foi possível iniciar a apresentação. Tente novamente.",
+  );
+}
+
+export async function archiveWaitingRoom(
+  user: AdministratorUser,
+  input: ArchiveWaitingRoomRequest,
+): Promise<ArchivedWaitingRoom> {
+  const parsedInput = archiveWaitingRoomRequestSchema.parse(input);
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível arquivar a sala. Tente novamente.",
+  );
+  const result = archivedWaitingRoomMutationResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao arquivar a sala.",
+    );
+  }
+
+  return result.data.archivedRoom;
+}
+
+export async function restoreWaitingRoom(
+  user: AdministratorUser,
+  input: RestoreWaitingRoomRequest,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = restoreWaitingRoomRequestSchema.parse(input);
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível restaurar a sala. Tente novamente.",
+  );
+  const result = waitingRoomMutationResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao restaurar a sala.",
+    );
+  }
+
+  return result.data.room;
+}
+
+export async function deleteArchivedWaitingRoom(
+  user: AdministratorUser,
+  input: DeleteArchivedWaitingRoomRequest,
+): Promise<string> {
+  const parsedInput = deleteArchivedWaitingRoomRequestSchema.parse(input);
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível excluir a sala. Tente novamente.",
+  );
+  const result = deleteArchivedWaitingRoomResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao excluir a sala.",
+    );
+  }
+
+  return result.data.deletedGameId;
 }
 
 export async function removeWaitingRoomParticipant(
-  user: Pick<User, "getIdToken">,
+  user: AdministratorUser,
   input: RemoveWaitingRoomParticipantRequest,
 ): Promise<ManagedWaitingRoom> {
   const parsedInput = removeWaitingRoomParticipantRequestSchema.parse(input);
-  const idToken = await user.getIdToken();
-  const response = await fetch("/api/games", {
-    method: "PATCH",
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(parsedInput),
-  });
-  const payload = await readApiPayload(response);
-
-  if (!response.ok) {
-    const errorResult = apiErrorResponseSchema.safeParse(payload);
-
-    throw new WaitingRoomRequestError(
-      errorResult.success ? errorResult.data.error.code : "request-failed",
-      errorResult.success
-        ? errorResult.data.error.message
-        : "Não foi possível remover o participante. Tente novamente.",
-    );
-  }
-
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível remover o participante. Tente novamente.",
+  );
   const result = managedWaitingRoomResponseSchema.safeParse(payload);
 
   if (!result.success) {

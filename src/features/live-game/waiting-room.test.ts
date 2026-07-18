@@ -49,7 +49,8 @@ describe("cliente da sala de espera", () => {
         JSON.stringify({
           room: {
             id: "ABC234",
-            phase: "waiting",
+            name: "Quiz de Ciências",
+            phase: "finished",
             createdAt: 1_000,
             participantCount: 0,
           },
@@ -59,12 +60,16 @@ describe("cliente da sala de espera", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createWaitingRoom({ getIdToken })).resolves.toMatchObject({
-      id: "ABC234",
-    });
+    await expect(
+      createWaitingRoom({ getIdToken }, { name: "Quiz de Ciências" }),
+    ).resolves.toMatchObject({ id: "ABC234", name: "Quiz de Ciências" });
     expect(fetchMock).toHaveBeenCalledWith("/api/games", {
       method: "POST",
-      headers: { authorization: "Bearer token-administrativo" },
+      headers: {
+        authorization: "Bearer token-administrativo",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ name: "Quiz de Ciências" }),
     });
   });
 
@@ -85,7 +90,10 @@ describe("cliente da sala de espera", () => {
     );
 
     await expect(
-      createWaitingRoom({ getIdToken: vi.fn().mockResolvedValue("token") }),
+      createWaitingRoom(
+        { getIdToken: vi.fn().mockResolvedValue("token") },
+        { name: "Quiz de Ciências" },
+      ),
     ).rejects.toEqual(
       new WaitingRoomRequestError(
         "administrator-not-authorized",
@@ -213,16 +221,27 @@ describe("cliente da sala de espera", () => {
   it("solicita o encerramento administrativo da sala", async () => {
     const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ endedGameId: "ABC234" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({
+          room: {
+            id: "ABC234",
+            name: "Quiz de Ciências",
+            phase: "finished",
+            createdAt: 1_000,
+            participantCount: 1,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       endWaitingRoom({ getIdToken }, { gameId: "ABC234", action: "end-room" }),
-    ).resolves.toBe("ABC234");
+    ).resolves.toMatchObject({ id: "ABC234", phase: "finished" });
     expect(fetchMock).toHaveBeenCalledWith("/api/games", {
       method: "PATCH",
       headers: {
@@ -245,7 +264,10 @@ describe("cliente da sala de espera", () => {
     );
 
     await expect(
-      createWaitingRoom({ getIdToken: vi.fn().mockResolvedValue("token") }),
+      createWaitingRoom(
+        { getIdToken: vi.fn().mockResolvedValue("token") },
+        { name: "Quiz de Ciências" },
+      ),
     ).rejects.toEqual(
       new WaitingRoomRequestError(
         "api-unavailable",

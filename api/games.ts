@@ -1,14 +1,26 @@
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 import {
+  archiveWaitingRoom,
   createWaitingRoom,
+  deleteArchivedWaitingRoom,
   endWaitingRoom,
   getManagedWaitingRoom,
+  listArchivedWaitingRooms,
   listManagedWaitingRooms,
+  presentWaitingRoom,
   removeWaitingRoomParticipant,
+  restoreWaitingRoom,
 } from "./_lib/waiting-room-service.js";
 import { removeWaitingRoomParticipantRequestSchema } from "../src/shared/participant.js";
-import { endWaitingRoomRequestSchema } from "../src/shared/waiting-room.js";
+import {
+  archiveWaitingRoomRequestSchema,
+  createWaitingRoomRequestSchema,
+  deleteArchivedWaitingRoomRequestSchema,
+  endWaitingRoomRequestSchema,
+  presentWaitingRoomRequestSchema,
+  restoreWaitingRoomRequestSchema,
+} from "../src/shared/waiting-room.js";
 import { HttpError } from "./_lib/http-error.js";
 
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
@@ -36,6 +48,18 @@ function isHttpError(error: unknown): error is HttpErrorLike {
   );
 }
 
+async function readJsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new HttpError(
+      400,
+      "invalid-json",
+      "O corpo da requisição não contém um JSON válido.",
+    );
+  }
+}
+
 export async function GET(request: Request): Promise<Response> {
   try {
     const services = getFirebaseAdminServices();
@@ -49,6 +73,12 @@ export async function GET(request: Request): Promise<Response> {
 
     if (scope === "library" && !gameId) {
       const rooms = await listManagedWaitingRooms(administrator.uid, services);
+
+      return jsonResponse({ rooms }, 200);
+    }
+
+    if (scope === "archived" && !gameId) {
+      const rooms = await listArchivedWaitingRooms(administrator.uid, services);
 
       return jsonResponse({ rooms }, 200);
     }
@@ -80,7 +110,23 @@ export async function POST(request: Request): Promise<Response> {
       request,
       services,
     );
-    const room = await createWaitingRoom(administrator.uid, services);
+    const inputResult = createWaitingRoomRequestSchema.safeParse(
+      await readJsonBody(request),
+    );
+
+    if (!inputResult.success) {
+      throw new HttpError(
+        400,
+        "invalid-room-data",
+        inputResult.error.issues[0]?.message ?? "Revise os dados da sala.",
+      );
+    }
+
+    const room = await createWaitingRoom(
+      administrator.uid,
+      inputResult.data,
+      services,
+    );
 
     return jsonResponse({ room }, 201);
   } catch (error) {
@@ -95,28 +141,70 @@ export async function PATCH(request: Request): Promise<Response> {
       request,
       services,
     );
-    let payload: unknown;
-
-    try {
-      payload = await request.json();
-    } catch {
-      throw new HttpError(
-        400,
-        "invalid-json",
-        "O corpo da requisição não contém um JSON válido.",
-      );
-    }
+    const payload = await readJsonBody(request);
 
     const endRoomResult = endWaitingRoomRequestSchema.safeParse(payload);
 
     if (endRoomResult.success) {
-      const endedGameId = await endWaitingRoom(
+      const room = await endWaitingRoom(
         administrator.uid,
         endRoomResult.data,
         services,
       );
 
-      return jsonResponse({ endedGameId }, 200);
+      return jsonResponse({ room }, 200);
+    }
+
+    const presentRoomResult =
+      presentWaitingRoomRequestSchema.safeParse(payload);
+
+    if (presentRoomResult.success) {
+      const room = await presentWaitingRoom(
+        administrator.uid,
+        presentRoomResult.data,
+        services,
+      );
+
+      return jsonResponse({ room }, 200);
+    }
+
+    const archiveRoomResult =
+      archiveWaitingRoomRequestSchema.safeParse(payload);
+
+    if (archiveRoomResult.success) {
+      const archivedRoom = await archiveWaitingRoom(
+        administrator.uid,
+        archiveRoomResult.data,
+        services,
+      );
+
+      return jsonResponse({ archivedRoom }, 200);
+    }
+
+    const restoreRoomResult =
+      restoreWaitingRoomRequestSchema.safeParse(payload);
+
+    if (restoreRoomResult.success) {
+      const room = await restoreWaitingRoom(
+        administrator.uid,
+        restoreRoomResult.data,
+        services,
+      );
+
+      return jsonResponse({ room }, 200);
+    }
+
+    const deleteRoomResult =
+      deleteArchivedWaitingRoomRequestSchema.safeParse(payload);
+
+    if (deleteRoomResult.success) {
+      const deletedGameId = await deleteArchivedWaitingRoom(
+        administrator.uid,
+        deleteRoomResult.data,
+        services,
+      );
+
+      return jsonResponse({ deletedGameId }, 200);
     }
 
     const removeParticipantResult =

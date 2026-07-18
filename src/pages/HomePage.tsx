@@ -86,7 +86,7 @@ export function HomePage() {
           </div>
         )}
 
-        {linkedRoomState.room && (
+        {linkedRoomState.room?.phase === "waiting" && (
           <div
             className="linked-room-notice"
             aria-label="Sala ativa identificada"
@@ -97,6 +97,13 @@ export function HomePage() {
               Aguardando · {linkedRoomState.room.participantCount}{" "}
               participante(s)
             </small>
+          </div>
+        )}
+
+        {linkedRoomState.room?.phase === "finished" && (
+          <div className="test-result test-result-error" role="status">
+            <strong>Apresentação finalizada</strong>
+            <p>Esta sala permanece salva, mas não está recebendo entradas.</p>
           </div>
         )}
 
@@ -130,22 +137,11 @@ export function HomePage() {
         )}
 
         {user && isAnonymous && (
-          <>
-            <ParticipantJoinPanel
-              key={user.uid}
-              user={user}
-              initialGameId={linkedGameId}
-            />
-
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={submitting}
-              onClick={handleLogout}
-            >
-              Sair
-            </button>
-          </>
+          <ParticipantJoinPanel
+            key={user.uid}
+            user={user}
+            initialGameId={linkedGameId}
+          />
         )}
 
         {user && !isAnonymous && isAdministrator && (

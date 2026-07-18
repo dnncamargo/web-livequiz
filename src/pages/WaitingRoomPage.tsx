@@ -4,7 +4,9 @@ import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
 import {
+  archiveWaitingRoom,
   endWaitingRoom,
+  presentWaitingRoom,
   removeWaitingRoomParticipant,
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
@@ -28,17 +30,22 @@ export function WaitingRoomPage() {
   const [participantActionError, setParticipantActionError] = useState("");
   const [confirmingRoomClosure, setConfirmingRoomClosure] = useState(false);
   const [endingRoom, setEndingRoom] = useState(false);
+  const [processingRoom, setProcessingRoom] = useState(false);
+  const [phaseOverride, setPhaseOverride] = useState<
+    "waiting" | "finished" | null
+  >(null);
   const [refreshRevision, setRefreshRevision] = useState(0);
   const publicRoomState = usePublicWaitingRoom(id);
   const managedRoomState = useManagedWaitingRoom(
     user,
     id,
-    `${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
+    `${publicRoomState.room?.phase ?? "missing"}:${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
   );
   const room = publicRoomState.room ?? managedRoomState.waitingRoom?.room;
   const participants = managedRoomState.waitingRoom?.participants ?? [];
   const loading = publicRoomState.loading && managedRoomState.loading;
   const error = publicRoomState.error ?? managedRoomState.error;
+  const roomPhase = phaseOverride ?? room?.phase;
 
   async function confirmParticipantRemoval(participantId: string) {
     if (!user) {
@@ -78,15 +85,63 @@ export function WaitingRoomPage() {
 
     try {
       await endWaitingRoom(user, { gameId: id, action: "end-room" });
-      navigate("/gerenciar");
+      setPhaseOverride("finished");
+      setConfirmingRoomClosure(false);
+      setRefreshRevision((revision) => revision + 1);
     } catch (error) {
-      console.error("Erro ao encerrar sala de espera:", error);
+      console.error("Erro ao encerrar apresentação:", error);
       setParticipantActionError(
         error instanceof WaitingRoomRequestError
           ? error.message
-          : "Não foi possível encerrar a sala. Tente novamente.",
+          : "Não foi possível encerrar a apresentação. Tente novamente.",
       );
+    } finally {
       setEndingRoom(false);
+    }
+  }
+
+  async function handlePresentRoom() {
+    if (!user) {
+      return;
+    }
+
+    setProcessingRoom(true);
+    setParticipantActionError("");
+
+    try {
+      await presentWaitingRoom(user, { gameId: id, action: "present-room" });
+      setPhaseOverride("waiting");
+      navigate(`/apresentacao?sala=${id}`);
+    } catch (error) {
+      console.error("Erro ao apresentar sala:", error);
+      setParticipantActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível iniciar a apresentação.",
+      );
+      setProcessingRoom(false);
+    }
+  }
+
+  async function handleArchiveRoom() {
+    if (!user) {
+      return;
+    }
+
+    setProcessingRoom(true);
+    setParticipantActionError("");
+
+    try {
+      await archiveWaitingRoom(user, { gameId: id, action: "archive-room" });
+      navigate("/gerenciar");
+    } catch (error) {
+      console.error("Erro ao arquivar sala:", error);
+      setParticipantActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível arquivar a sala.",
+      );
+      setProcessingRoom(false);
     }
   }
 
@@ -121,8 +176,8 @@ export function WaitingRoomPage() {
   return (
     <main className="page">
       <section className="card waiting-room-card">
-        <span className="eyebrow">Sala de espera ativa</span>
-        <h1>Compartilhe o código</h1>
+        <span className="eyebrow">Gerenciamento da sala</span>
+        <h1>{room.name ?? `Sala ${room.id}`}</h1>
 
         <div className="room-code-panel">
           <span>Código da sala</span>
@@ -134,7 +189,9 @@ export function WaitingRoomPage() {
         <div className="room-summary" aria-label="Resumo da sala">
           <div>
             <span>Fase</span>
-            <strong>Aguardando</strong>
+            <strong>
+              {roomPhase === "waiting" ? "Em apresentação" : "Finalizada"}
+            </strong>
           </div>
           <div>
             <span>Participantes</span>
@@ -198,7 +255,8 @@ export function WaitingRoomPage() {
                         : "Desconectado"}
                     </span>
 
-                    {participant.moderationStatus !== "removed" &&
+                    {roomPhase === "waiting" &&
+                      participant.moderationStatus !== "removed" &&
                       participantPendingRemoval !==
                         participant.participantId && (
                         <button
@@ -253,10 +311,8 @@ export function WaitingRoomPage() {
         </section>
 
         <p>
-          A sala permanece ativa ao atualizar esta página. Envie o link abaixo
-          para que o código seja identificado automaticamente no dispositivo do
-          participante. Para testar, abra o link em uma janela anônima ou em
-          outro dispositivo, mantendo esta sessão administrativa aberta.
+          Apresentar permite novas entradas. Encerrar finaliza somente a
+          apresentação; a sala continua disponível para uso futuro.
         </p>
 
         <section
@@ -264,26 +320,35 @@ export function WaitingRoomPage() {
           aria-labelledby="close-room-title"
         >
           <div>
-            <strong id="close-room-title">Encerrar esta sala</strong>
-            <span>
-              Finaliza a sala para todos. Sair da conta administrativa não
-              executa esta ação.
-            </span>
+            <strong id="close-room-title">Ciclo da sala</strong>
+            <span>Apresente, encerre a apresentação ou arquive esta sala.</span>
           </div>
 
-          {!confirmingRoomClosure && (
+          <button
+            type="button"
+            className="primary-button compact-button"
+            disabled={processingRoom}
+            onClick={() => void handlePresentRoom()}
+          >
+            {processingRoom ? "Processando..." : "Apresentar"}
+          </button>
+
+          {roomPhase === "waiting" && !confirmingRoomClosure && (
             <button
               type="button"
               className="danger-button"
               onClick={() => setConfirmingRoomClosure(true)}
             >
-              Encerrar sala
+              Encerrar
             </button>
           )}
 
           {confirmingRoomClosure && (
             <div className="room-closure-confirmation">
-              <span>Todos os participantes serão desconectados.</span>
+              <span>
+                A apresentação será finalizada e os participantes serão
+                desconectados.
+              </span>
               <div>
                 <button
                   type="button"
@@ -299,11 +364,20 @@ export function WaitingRoomPage() {
                   disabled={endingRoom}
                   onClick={() => setConfirmingRoomClosure(false)}
                 >
-                  Manter sala aberta
+                  Manter apresentação
                 </button>
               </div>
             </div>
           )}
+
+          <button
+            type="button"
+            className="secondary-button compact-button"
+            disabled={processingRoom}
+            onClick={() => void handleArchiveRoom()}
+          >
+            Arquivar
+          </button>
         </section>
 
         <nav className="navigation">

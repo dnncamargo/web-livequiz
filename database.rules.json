@@ -26,7 +26,7 @@
               ".write": false,
               "connections": {
                 "$connectionId": {
-                  ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && ($connectionId.matches(/^[A-Za-z0-9_-]{20}$/)) && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
+                  ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && root.child('liveGames').child($gameId).child('phase').val() === 'waiting' && ($connectionId.matches(/^[A-Za-z0-9_-]{20}$/)) && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
                   ".validate": "!newData.exists() || newData.hasChildren(['connectedAt', 'lastSeenAt'])",
                   "connectedAt": {
                     ".validate": "newData.isNumber() && ((!data.exists() && newData.val() <= now && newData.val() >= now - 60000) || (data.exists() && newData.val() === data.val()))"
@@ -40,7 +40,7 @@
                 }
               },
               "lastDisconnectedAt": {
-                ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
+                ".write": "auth != null && auth.uid === $participantId && auth.token.firebase.sign_in_provider === 'anonymous' && root.child('liveGames').child($gameId).child('phase').val() === 'waiting' && (root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'waiting-approval' || root.child('liveGames').child($gameId).child('participants').child($participantId).child('moderationStatus').val() === 'approved')",
                 ".validate": "newData.isNumber() && newData.val() <= now && newData.val() >= now - 60000"
               },
               "$other": {

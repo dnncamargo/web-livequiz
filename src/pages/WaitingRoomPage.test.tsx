@@ -7,19 +7,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WaitingRoomPage } from "./WaitingRoomPage";
 
+type Room = {
+  id: string;
+  name?: string;
+  phase: "waiting" | "finished";
+  createdAt: number;
+  participantCount: number;
+};
+
 const roomHookMock = vi.hoisted(() => ({
   state: {
     room: {
       id: "ABC234",
+      name: "Quiz de Ciências",
       phase: "waiting",
       createdAt: 1_000,
       participantCount: 0,
-    } as null | {
-      id: string;
-      phase: "waiting";
-      createdAt: number;
-      participantCount: number;
-    },
+    } as Room | null,
     loading: false,
     error: null as string | null,
   },
@@ -29,12 +33,7 @@ const roomHookMock = vi.hoisted(() => ({
 const managedRoomHookMock = vi.hoisted(() => ({
   state: {
     waitingRoom: null as null | {
-      room: {
-        id: string;
-        phase: "waiting";
-        createdAt: number;
-        participantCount: number;
-      };
+      room: Room;
       participants: Array<{
         participantId: string;
         nickname: string;
@@ -48,7 +47,9 @@ const managedRoomHookMock = vi.hoisted(() => ({
   },
   gameId: "",
   refreshRevision: "" as string | number,
+  archiveWaitingRoom: vi.fn(),
   endWaitingRoom: vi.fn(),
+  presentWaitingRoom: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
 }));
 
@@ -77,19 +78,39 @@ vi.mock("../features/live-game/use-managed-waiting-room", () => ({
 
 vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
+  archiveWaitingRoom: managedRoomHookMock.archiveWaitingRoom,
   endWaitingRoom: managedRoomHookMock.endWaitingRoom,
+  presentWaitingRoom: managedRoomHookMock.presentWaitingRoom,
   removeWaitingRoomParticipant:
     managedRoomHookMock.removeWaitingRoomParticipant,
 }));
 
+function buildRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: "ABC234",
+    name: "Quiz de Ciências",
+    phase: "waiting",
+    createdAt: 1_000,
+    participantCount: 0,
+    ...overrides,
+  };
+}
+
+function renderWaitingRoom() {
+  return render(
+    <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
+      <Routes>
+        <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
+        <Route path="/gerenciar" element={<p>Biblioteca de salas</p>} />
+        <Route path="/apresentacao" element={<p>Apresentação aberta</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("WaitingRoomPage", () => {
   beforeEach(() => {
-    roomHookMock.state.room = {
-      id: "ABC234",
-      phase: "waiting",
-      createdAt: 1_000,
-      participantCount: 0,
-    };
+    roomHookMock.state.room = buildRoom();
     roomHookMock.state.loading = false;
     roomHookMock.state.error = null;
     roomHookMock.gameId = "";
@@ -98,7 +119,13 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.state.error = null;
     managedRoomHookMock.gameId = "";
     managedRoomHookMock.refreshRevision = "";
-    managedRoomHookMock.endWaitingRoom.mockReset().mockResolvedValue("ABC234");
+    managedRoomHookMock.archiveWaitingRoom.mockReset().mockResolvedValue({});
+    managedRoomHookMock.endWaitingRoom
+      .mockReset()
+      .mockResolvedValue(buildRoom({ phase: "finished" }));
+    managedRoomHookMock.presentWaitingRoom
+      .mockReset()
+      .mockResolvedValue(buildRoom({ phase: "waiting" }));
     managedRoomHookMock.removeWaitingRoomParticipant
       .mockReset()
       .mockResolvedValue(null);
@@ -107,20 +134,15 @@ describe("WaitingRoomPage", () => {
   afterEach(cleanup);
 
   it("restaura a sala pelo código presente na URL", () => {
-    render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWaitingRoom();
 
     expect(roomHookMock.gameId).toBe("ABC234");
+    expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
-    expect(screen.getByText("Aguardando")).toBeInTheDocument();
+    expect(screen.getByText("Em apresentação")).toBeInTheDocument();
     expect(screen.getByLabelText("Resumo da sala")).toHaveTextContent("0");
     expect(managedRoomHookMock.gameId).toBe("ABC234");
-    expect(managedRoomHookMock.refreshRevision).toBe("0:0");
+    expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
     expect(
       screen.getByRole("link", { name: "Abrir página do participante" }),
     ).toHaveAttribute("href", "/?sala=ABC234");
@@ -128,14 +150,7 @@ describe("WaitingRoomPage", () => {
 
   it("informa quando a sala não existe", () => {
     roomHookMock.state.room = null;
-
-    render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWaitingRoom();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "A sala não existe ou já foi encerrada.",
@@ -143,21 +158,10 @@ describe("WaitingRoomPage", () => {
   });
 
   it("solicita atualização administrativa quando a contagem pública muda", () => {
-    const view = render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    const view = renderWaitingRoom();
 
-    expect(managedRoomHookMock.refreshRevision).toBe("0:0");
-    roomHookMock.state.room = {
-      id: "ABC234",
-      phase: "waiting",
-      createdAt: 1_000,
-      participantCount: 1,
-    };
+    expect(managedRoomHookMock.refreshRevision).toBe("waiting:0:0");
+    roomHookMock.state.room = buildRoom({ participantCount: 1 });
     view.rerender(
       <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
         <Routes>
@@ -166,17 +170,12 @@ describe("WaitingRoomPage", () => {
       </MemoryRouter>,
     );
 
-    expect(managedRoomHookMock.refreshRevision).toBe("1:0");
+    expect(managedRoomHookMock.refreshRevision).toBe("waiting:1:0");
   });
 
   it("apresenta os participantes recuperados pela consulta administrativa", () => {
     managedRoomHookMock.state.waitingRoom = {
-      room: {
-        id: "ABC234",
-        phase: "waiting",
-        createdAt: 1_000,
-        participantCount: 1,
-      },
+      room: buildRoom({ participantCount: 1 }),
       participants: [
         {
           participantId: "participante-1",
@@ -188,13 +187,7 @@ describe("WaitingRoomPage", () => {
       ],
     };
 
-    render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWaitingRoom();
 
     expect(screen.getByText("Estrela Azul")).toBeInTheDocument();
     expect(screen.getByText("Aguardando aprovação")).toBeInTheDocument();
@@ -207,12 +200,7 @@ describe("WaitingRoomPage", () => {
   it("confirma a remoção antes de solicitar a ação administrativa", async () => {
     const browserUser = userEvent.setup();
     managedRoomHookMock.state.waitingRoom = {
-      room: {
-        id: "ABC234",
-        phase: "waiting",
-        createdAt: 1_000,
-        participantCount: 1,
-      },
+      room: buildRoom({ participantCount: 1 }),
       participants: [
         {
           participantId: "participante-1",
@@ -223,14 +211,7 @@ describe("WaitingRoomPage", () => {
         },
       ],
     };
-
-    render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderWaitingRoom();
 
     await browserUser.click(
       screen.getByRole("button", { name: "Remover Estrela Azul" }),
@@ -251,21 +232,12 @@ describe("WaitingRoomPage", () => {
     );
   });
 
-  it("confirma o encerramento e volta para a biblioteca", async () => {
+  it("confirma o encerramento e mantém a sala finalizada", async () => {
     const browserUser = userEvent.setup();
+    renderWaitingRoom();
 
-    render(
-      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
-        <Routes>
-          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
-          <Route path="/gerenciar" element={<p>Biblioteca de salas</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await browserUser.click(
-      screen.getByRole("button", { name: "Encerrar sala" }),
-    );
+    await browserUser.click(screen.getByRole("button", { name: "Encerrar" }));
+    expect(managedRoomHookMock.endWaitingRoom).not.toHaveBeenCalled();
     await browserUser.click(
       screen.getByRole("button", { name: "Confirmar encerramento" }),
     );
@@ -273,6 +245,34 @@ describe("WaitingRoomPage", () => {
     expect(managedRoomHookMock.endWaitingRoom).toHaveBeenCalledWith(
       expect.objectContaining({ uid: "administrador-1" }),
       { gameId: "ABC234", action: "end-room" },
+    );
+    expect(await screen.findByText("Finalizada")).toBeInTheDocument();
+    expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
+  });
+
+  it("apresenta sem confirmação", async () => {
+    const browserUser = userEvent.setup();
+    roomHookMock.state.room = buildRoom({ phase: "finished" });
+    renderWaitingRoom();
+
+    await browserUser.click(screen.getByRole("button", { name: "Apresentar" }));
+
+    expect(managedRoomHookMock.presentWaitingRoom).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "administrador-1" }),
+      { gameId: "ABC234", action: "present-room" },
+    );
+    expect(await screen.findByText("Apresentação aberta")).toBeInTheDocument();
+  });
+
+  it("arquiva sem confirmação", async () => {
+    const browserUser = userEvent.setup();
+    renderWaitingRoom();
+
+    await browserUser.click(screen.getByRole("button", { name: "Arquivar" }));
+
+    expect(managedRoomHookMock.archiveWaitingRoom).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "administrador-1" }),
+      { gameId: "ABC234", action: "archive-room" },
     );
     expect(await screen.findByText("Biblioteca de salas")).toBeInTheDocument();
   });

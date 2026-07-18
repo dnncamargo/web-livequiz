@@ -31,13 +31,12 @@ function participantDatabase(participantId: string): Database {
 
 async function seedParticipant(participantId = "participante-1") {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
-    await set(
-      ref(
-        context.database(databaseUrl),
-        `liveGames/sala-1/participants/${participantId}`,
-      ),
-      { moderationStatus: "approved" },
-    );
+    await update(ref(context.database(databaseUrl)), {
+      "liveGames/sala-1/phase": "waiting",
+      [`liveGames/sala-1/participants/${participantId}`]: {
+        moderationStatus: "approved",
+      },
+    });
   });
 }
 
@@ -99,6 +98,30 @@ describe("regras do Realtime Database", () => {
     await assertSucceeds(
       get(
         ref(database, "liveGames/sala-1/participants/participante-1/presence"),
+      ),
+    );
+  });
+
+  it("bloqueia novas conexões quando a apresentação foi finalizada", async () => {
+    await seedParticipant();
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await set(
+        ref(context.database(databaseUrl), "liveGames/sala-1/phase"),
+        "finished",
+      );
+    });
+    const database = participantDatabase("participante-1");
+
+    await assertFails(
+      set(
+        ref(
+          database,
+          `liveGames/sala-1/participants/participante-1/presence/connections/${connectionId}`,
+        ),
+        {
+          connectedAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+        },
       ),
     );
   });
@@ -278,13 +301,12 @@ describe("regras do Realtime Database", () => {
 
   it("bloqueia a reconexão de um participante removido", async () => {
     await testEnvironment.withSecurityRulesDisabled(async (context) => {
-      await set(
-        ref(
-          context.database(databaseUrl),
-          "liveGames/sala-1/participants/participante-1",
-        ),
-        { moderationStatus: "removed" },
-      );
+      await update(ref(context.database(databaseUrl)), {
+        "liveGames/sala-1/phase": "waiting",
+        "liveGames/sala-1/participants/participante-1": {
+          moderationStatus: "removed",
+        },
+      });
     });
 
     const database = participantDatabase("participante-1");

@@ -32,7 +32,7 @@ const publicRoomMock = vi.hoisted(() => ({
   state: {
     room: null as null | {
       id: string;
-      phase: "waiting";
+      phase: "waiting" | "finished";
       createdAt: number;
       participantCount: number;
     },
@@ -149,6 +149,26 @@ describe("HomePage", () => {
       "ABC234",
     );
     expect(screen.getByText(/3 participante/i)).toBeInTheDocument();
+  });
+
+  it("avisa quando o link aponta para uma apresentação finalizada", () => {
+    publicRoomMock.state.room = {
+      id: "ABC234",
+      phase: "finished",
+      createdAt: 1_000,
+      participantCount: 0,
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/?sala=ABC234"]}>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Apresentação finalizada")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Sala ativa identificada"),
+    ).not.toBeInTheDocument();
   });
 
   it("não apresenta uma conta Google comum como administradora", () => {

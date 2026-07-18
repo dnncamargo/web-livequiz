@@ -8,8 +8,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ManagementPage } from "./ManagementPage";
 
 const managementMocks = vi.hoisted(() => ({
+  archiveWaitingRoom: vi.fn(),
   createWaitingRoom: vi.fn(),
   endWaitingRoom: vi.fn(),
+  presentWaitingRoom: vi.fn(),
   logout: vi.fn(),
   user: {
     uid: "administrador-1",
@@ -19,7 +21,8 @@ const managementMocks = vi.hoisted(() => ({
   roomLibraryState: {
     rooms: [] as Array<{
       id: string;
-      phase: "waiting";
+      name?: string;
+      phase: "waiting" | "finished";
       createdAt: number;
       participantCount: number;
     }>,
@@ -36,8 +39,10 @@ vi.mock("../contexts/auth-context", () => ({
 }));
 
 vi.mock("../features/live-game/waiting-room", () => ({
+  archiveWaitingRoom: managementMocks.archiveWaitingRoom,
   createWaitingRoom: managementMocks.createWaitingRoom,
   endWaitingRoom: managementMocks.endWaitingRoom,
+  presentWaitingRoom: managementMocks.presentWaitingRoom,
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
 }));
 
@@ -47,14 +52,28 @@ vi.mock("../features/live-game/use-managed-waiting-rooms", () => ({
 
 describe("ManagementPage", () => {
   beforeEach(() => {
-    managementMocks.logout.mockReset().mockResolvedValue(undefined);
-    managementMocks.createWaitingRoom.mockReset().mockResolvedValue({
+    const room = {
       id: "ABC234",
-      phase: "waiting",
+      name: "Quiz de Ciências",
+      phase: "finished" as const,
       createdAt: 1_000,
       participantCount: 0,
+    };
+    managementMocks.logout.mockReset().mockResolvedValue(undefined);
+    managementMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
+    managementMocks.endWaitingRoom
+      .mockReset()
+      .mockResolvedValue({ ...room, phase: "finished" });
+    managementMocks.presentWaitingRoom
+      .mockReset()
+      .mockResolvedValue({ ...room, phase: "waiting" });
+    managementMocks.archiveWaitingRoom.mockReset().mockResolvedValue({
+      id: room.id,
+      name: room.name,
+      createdAt: room.createdAt,
+      archivedAt: 2_000,
+      participantCount: 0,
     });
-    managementMocks.endWaitingRoom.mockReset().mockResolvedValue("ABC234");
     managementMocks.roomLibraryState.rooms = [];
     managementMocks.roomLibraryState.loading = false;
     managementMocks.roomLibraryState.error = null;
@@ -62,10 +81,8 @@ describe("ManagementPage", () => {
 
   afterEach(cleanup);
 
-  it("cria uma nova sala e abre sua rota administrativa", async () => {
-    const browserUser = userEvent.setup();
-
-    render(
+  function renderManagement() {
+    return render(
       <MemoryRouter initialEntries={["/gerenciar"]}>
         <Routes>
           <Route path="/gerenciar" element={<ManagementPage />} />
@@ -73,67 +90,114 @@ describe("ManagementPage", () => {
             path="/gerenciar/sala/:id"
             element={<p>Sala ABC234 aberta</p>}
           />
+          <Route path="/apresentacao" element={<p>Apresentação aberta</p>} />
         </Routes>
       </MemoryRouter>,
     );
+  }
 
-    await browserUser.click(
-      screen.getByRole("button", { name: "Criar nova sala" }),
+  it("cria uma sala identificada por nome sem confirmação", async () => {
+    const browserUser = userEvent.setup();
+    renderManagement();
+
+    await browserUser.type(
+      screen.getByLabelText("Nome da nova sala"),
+      "Quiz de Ciências",
     );
+    await browserUser.click(screen.getByRole("button", { name: "Criar sala" }));
 
     expect(await screen.findByText("Sala ABC234 aberta")).toBeInTheDocument();
     expect(managementMocks.createWaitingRoom).toHaveBeenCalledWith(
       managementMocks.user,
+      { name: "Quiz de Ciências" },
     );
   });
 
-  it("apresenta a biblioteca e mantém a criação disponível", () => {
+  it("apresenta nome, código e ações semanticamente separadas", () => {
     managementMocks.roomLibraryState.rooms = [
       {
         id: "ABC234",
-        phase: "waiting",
+        name: "Quiz de Ciências",
+        phase: "finished",
         createdAt: 1_000,
         participantCount: 2,
       },
     ];
+    renderManagement();
 
-    render(
-      <MemoryRouter>
-        <ManagementPage />
-      </MemoryRouter>,
-    );
-
+    expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
     expect(screen.getByText("ABC234")).toBeInTheDocument();
-    expect(screen.getByText("2 participante(s)")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Abrir sala" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Gerenciar" })).toHaveAttribute(
       "href",
       "/gerenciar/sala/ABC234",
     );
     expect(
-      screen.getByRole("button", { name: "Criar nova sala" }),
+      screen.getByRole("button", { name: "Apresentar" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Arquivar" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Encerrar" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("confirma o encerramento sem confundi-lo com a saída da conta", async () => {
+  it("apresenta sem solicitar confirmação", async () => {
     const browserUser = userEvent.setup();
     managementMocks.roomLibraryState.rooms = [
       {
         id: "ABC234",
+        name: "Quiz de Ciências",
+        phase: "finished",
+        createdAt: 1_000,
+        participantCount: 0,
+      },
+    ];
+    renderManagement();
+
+    await browserUser.click(screen.getByRole("button", { name: "Apresentar" }));
+    expect(managementMocks.presentWaitingRoom).toHaveBeenCalledWith(
+      managementMocks.user,
+      { gameId: "ABC234", action: "present-room" },
+    );
+  });
+
+  it("arquiva sem solicitar confirmação", async () => {
+    const browserUser = userEvent.setup();
+    managementMocks.roomLibraryState.rooms = [
+      {
+        id: "ABC234",
+        name: "Quiz de Ciências",
+        phase: "finished",
+        createdAt: 1_000,
+        participantCount: 0,
+      },
+    ];
+    renderManagement();
+
+    await browserUser.click(screen.getByRole("button", { name: "Arquivar" }));
+
+    expect(managementMocks.archiveWaitingRoom).toHaveBeenCalledWith(
+      managementMocks.user,
+      { gameId: "ABC234", action: "archive-room" },
+    );
+  });
+
+  it("exige confirmação somente para encerrar a apresentação", async () => {
+    const browserUser = userEvent.setup();
+    managementMocks.roomLibraryState.rooms = [
+      {
+        id: "ABC234",
+        name: "Quiz de Ciências",
         phase: "waiting",
         createdAt: 1_000,
         participantCount: 2,
       },
     ];
+    renderManagement();
 
-    render(
-      <MemoryRouter>
-        <ManagementPage />
-      </MemoryRouter>,
-    );
-
-    await browserUser.click(
-      screen.getByRole("button", { name: "Encerrar sala" }),
-    );
+    await browserUser.click(screen.getByRole("button", { name: "Encerrar" }));
+    expect(managementMocks.endWaitingRoom).not.toHaveBeenCalled();
     await browserUser.click(
       screen.getByRole("button", { name: "Confirmar encerramento" }),
     );
@@ -143,8 +207,5 @@ describe("ManagementPage", () => {
       { gameId: "ABC234", action: "end-room" },
     );
     expect(managementMocks.logout).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: "Sair da conta" }),
-    ).toBeInTheDocument();
   });
 });

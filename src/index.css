@@ -360,6 +360,18 @@ a:hover {
   margin: 36px 0;
 }
 
+.room-creation-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin: 32px 0;
+  padding: 20px;
+  border: 1px solid rgb(255 226 91 / 35%);
+  border-radius: 20px;
+  background: rgb(255 226 91 / 7%);
+}
+
 .room-library-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -389,6 +401,21 @@ a:hover {
   letter-spacing: 0.1em;
 }
 
+.room-library-summary .room-library-name {
+  color: #ffffff;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  letter-spacing: 0;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.room-library-summary code {
+  color: #ffe25b;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
 .room-library-summary small,
 .administrator-account small,
 .room-danger-zone span,
@@ -404,11 +431,26 @@ a:hover {
   text-transform: uppercase;
 }
 
+.room-status-finished {
+  color: #c5b9d6;
+}
+
+.room-status-archived {
+  color: #ffbd6b;
+}
+
 .room-library-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.room-library-actions .primary-button,
+.room-library-actions .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .room-closure-confirmation {
@@ -442,6 +484,14 @@ a:hover {
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 18px;
   background: rgb(255 255 255 / 5%);
+}
+
+.room-danger-zone {
+  flex-wrap: wrap;
+}
+
+.archived-room-list {
+  margin-top: 32px;
 }
 
 .administrator-account > div,
@@ -842,6 +892,10 @@ a:hover {
   }
 
   .room-library-list {
+    grid-template-columns: 1fr;
+  }
+
+  .room-creation-form {
     grid-template-columns: 1fr;
   }
 

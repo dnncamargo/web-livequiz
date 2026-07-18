@@ -65,9 +65,8 @@ export function ParticipantJoinPanel({
   const sessionRoom = usePublicWaitingRoom(participant?.gameId ?? "");
   const roomEnded = Boolean(
     participant &&
-    !sessionRoom.loading &&
-    !sessionRoom.room &&
-    !sessionRoom.error,
+    (sessionRoom.room?.phase === "finished" ||
+      (!sessionRoom.loading && !sessionRoom.room && !sessionRoom.error)),
   );
   const moderation = useParticipantModerationStatus(
     participant?.gameId ?? null,
@@ -168,7 +167,7 @@ export function ParticipantJoinPanel({
             <span>Situação</span>
             <strong>
               {roomEnded
-                ? "Sala encerrada"
+                ? "Apresentação encerrada"
                 : MODERATION_STATUS_LABELS[
                     effectiveModerationStatus ?? participant.moderationStatus
                   ]}
@@ -196,8 +195,10 @@ export function ParticipantJoinPanel({
 
         {roomEnded && (
           <div className="test-result test-result-error" role="alert">
-            <strong>Esta sala foi encerrada</strong>
-            <p>O administrador finalizou a sala para todos os participantes.</p>
+            <strong>Esta apresentação foi encerrada</strong>
+            <p>
+              A sala continua salva, mas não está recebendo participantes agora.
+            </p>
             <button
               type="button"
               className="secondary-button"
@@ -225,10 +226,19 @@ export function ParticipantJoinPanel({
         )}
 
         {!roomEnded && effectiveModerationStatus !== "removed" && (
-          <p>
-            Seu nickname foi salvo. A escolha de avatar será liberada no próximo
-            marco.
-          </p>
+          <>
+            <p>
+              Seu nickname foi salvo. A escolha de avatar será liberada no
+              próximo marco.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={leaveCurrentRoom}
+            >
+              Sair da sala
+            </button>
+          </>
         )}
       </div>
     );

@@ -16,24 +16,29 @@ implementados:
 - presença por aba com `onDisconnect`, heartbeat e tolerância a desconexões
   breves;
 - projeção pública separada do estado privado da partida;
-- criação segura de salas de espera pela API da Vercel;
-- código público de seis caracteres e rota administrativa recuperável após
-  atualização da página;
+- criação segura de salas nomeadas pela API da Vercel;
+- nome, código público de seis caracteres e rota administrativa recuperável
+  após atualização da página;
 - entrada do participante com código e nickname validado pelo servidor;
 - restauração da participação após atualização da página e ativação da
   presença somente depois do registro seguro na sala;
 - bloqueio de nicknames duplicados e publicação apenas da contagem de
   participantes no estado público;
 - recuperação da sala de espera ativa ao retornar ao gerenciamento;
-- biblioteca administrativa com múltiplas salas ativas e criação sempre
-  disponível;
-- encerramento explícito da sala, separado da ação de sair da conta Google;
+- biblioteca administrativa com múltiplas salas disponíveis e criação sempre
+  acessível;
+- ações distintas para apresentar, encerrar a apresentação e arquivar a sala,
+  separadas da saída da conta Google;
+- arquivo permanente no Firestore, com restauração confirmada e exclusão
+  definitiva confirmada em uma página própria;
 - lista privada de participantes atualizada no painel administrativo assim que
   a contagem pública muda, com verificação periódica como contingência;
 - remoção administrativa com confirmação, encerramento das conexões ativas e
   aviso em tempo real no dispositivo removido;
 - link de entrada que identifica e preenche automaticamente o código da sala
-  para o participante.
+  para o participante;
+- saída voluntária do participante que limpa a participação local e retorna
+  diretamente ao formulário de código e nickname.
 
 A escolha de avatar e a aprovação da entrada serão implementadas nos próximos
 marcos definidos em `AGENTS.md`. As funcionalidades de quizzes e partida
@@ -103,18 +108,26 @@ registro é consultado novamente no servidor pelo UID anônimo; nickname, status
 de moderação e pontuação não podem ser alterados diretamente pelo cliente.
 
 A consulta `GET /api/games` é exclusiva para administradores autorizados. Com
-`scope=library`, ela recupera as salas ativas pertencentes ao administrador;
-com `gameId`, retorna uma sala e sua lista privada de participantes. Essa lista
-não é copiada para `publicGames`.
+`scope=library`, ela recupera as salas disponíveis pertencentes ao
+administrador; com `scope=archived`, recupera as salas arquivadas; com
+`gameId`, retorna uma sala e sua lista privada de participantes. Essa lista não
+é copiada para `publicGames`.
 
 A operação autenticada `PATCH /api/games` remove um participante somente quando
 a sala pertence ao administrador solicitante. A remoção marca o registro como
 removido, encerra suas conexões e atualiza apenas a contagem pública.
 
-A mesma função encerra uma sala somente após confirmar sua propriedade. O
-encerramento remove o estado transitório privado e sua projeção pública,
-desconecta os participantes e impede novas entradas. Sair da conta
-administrativa não encerra nenhuma sala.
+A mesma função controla o ciclo de vida somente após confirmar a propriedade.
+Criar produz uma sala inicialmente finalizada; **Apresentar** ativa novas
+entradas; **Encerrar** finaliza somente a apresentação, desconecta os
+participantes e preserva a sala; **Arquivar** move seus metadados para a coleção
+privada `archivedWaitingRooms` do Firestore e remove o estado transitório do
+Realtime Database. Restaurar recria a sala finalizada, sem participantes
+conectados. Excluir apaga definitivamente o documento arquivado. Sair da conta
+administrativa não altera nenhuma sala.
+
+Criar, Apresentar e Arquivar são ações diretas. Encerrar, Restaurar e Excluir
+exigem confirmação na interface.
 
 O link `/?sala=CODIGO` confirma publicamente a sala ativa e preenche o código
 de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
@@ -160,7 +173,9 @@ administrativo confiável.
 Os arquivos `firestore.rules`, `database.rules.json` e `storage.rules` usam
 negação por padrão. No Firestore, apenas uma conta Google pode ler o próprio
 perfil administrativo, e somente administradores ativos acessam a coleção
-temporária `connectionTests`.
+temporária `connectionTests`. A coleção `archivedWaitingRooms` permanece
+inacessível ao navegador e é manipulada somente pela API autorizada com o
+Firebase Admin SDK.
 
 No Realtime Database:
 
@@ -171,7 +186,8 @@ No Realtime Database:
 - `liveGames` possui somente um índice de servidor por `ownerId`, sem conceder
   leitura ao navegador, para montar a biblioteca administrativa;
 - um participante anônimo pode manter apenas as próprias conexões e somente
-  depois que seu registro tiver sido criado na partida;
+  depois que seu registro tiver sido criado e enquanto a apresentação estiver
+  ativa;
 - esse participante pode ler apenas o próprio `moderationStatus`, necessário
   para receber em tempo real o aviso de remoção, sem acesso ao restante do
   registro privado;

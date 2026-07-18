@@ -25,7 +25,7 @@ const joinPanelMocks = vi.hoisted(() => ({
       participantCount: 1,
     } as null | {
       id: string;
-      phase: "waiting";
+      phase: "waiting" | "finished";
       createdAt: number;
       participantCount: number;
     },
@@ -133,6 +133,27 @@ describe("ParticipantJoinPanel", () => {
     expect(screen.getByText("ABC234")).toBeInTheDocument();
   });
 
+  it("sai da sala e retorna diretamente ao formulário de entrada", async () => {
+    const browserUser = userEvent.setup();
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    await browserUser.click(
+      await screen.findByRole("button", { name: "Sair da sala" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Entrar na sala" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Código da sala")).toBeInTheDocument();
+    expect(screen.getByLabelText("Seu nickname")).toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBeNull();
+    expect(
+      screen.queryByText("Falha ao acompanhar sua entrada"),
+    ).not.toBeInTheDocument();
+  });
+
   it("encerra a presença quando o administrador remove o participante", async () => {
     joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
     joinPanelMocks.moderation.status = "removed";
@@ -156,12 +177,29 @@ describe("ParticipantJoinPanel", () => {
     render(<ParticipantJoinPanel user={participantUser} />);
 
     expect(
-      await screen.findByText("Esta sala foi encerrada"),
+      await screen.findByText("Esta apresentação foi encerrada"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Sala encerrada")).toBeInTheDocument();
+    expect(screen.getByText("Apresentação encerrada")).toBeInTheDocument();
     expect(
       screen.queryByText("Você foi removido desta sala"),
     ).not.toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBeNull();
+  });
+
+  it("trata a fase finalizada como encerramento da apresentação", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      phase: "finished",
+      createdAt: 1_000,
+      participantCount: 1,
+    };
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(
+      await screen.findByText("Esta apresentação foi encerrada"),
+    ).toBeInTheDocument();
     expect(joinPanelMocks.presenceGameId).toBeNull();
   });
 

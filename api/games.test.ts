@@ -4,12 +4,17 @@ import { GET, PATCH, POST } from "./games.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
+  archiveWaitingRoom: vi.fn(),
   authorizeAdministratorRequest: vi.fn(),
   createWaitingRoom: vi.fn(),
+  deleteArchivedWaitingRoom: vi.fn(),
   endWaitingRoom: vi.fn(),
   getManagedWaitingRoom: vi.fn(),
+  listArchivedWaitingRooms: vi.fn(),
   listManagedWaitingRooms: vi.fn(),
+  presentWaitingRoom: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
+  restoreWaitingRoom: vi.fn(),
 }));
 
 vi.mock("./_lib/firebase-admin.js", () => ({
@@ -21,15 +26,21 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 }));
 
 vi.mock("./_lib/waiting-room-service.js", () => ({
+  archiveWaitingRoom: apiMocks.archiveWaitingRoom,
   createWaitingRoom: apiMocks.createWaitingRoom,
+  deleteArchivedWaitingRoom: apiMocks.deleteArchivedWaitingRoom,
   endWaitingRoom: apiMocks.endWaitingRoom,
   getManagedWaitingRoom: apiMocks.getManagedWaitingRoom,
+  listArchivedWaitingRooms: apiMocks.listArchivedWaitingRooms,
   listManagedWaitingRooms: apiMocks.listManagedWaitingRooms,
+  presentWaitingRoom: apiMocks.presentWaitingRoom,
   removeWaitingRoomParticipant: apiMocks.removeWaitingRoomParticipant,
+  restoreWaitingRoom: apiMocks.restoreWaitingRoom,
 }));
 
 const room = {
   id: "ABC234",
+  name: "Quiz de Ciências",
   phase: "waiting",
   createdAt: 1_000,
   participantCount: 0,
@@ -41,7 +52,11 @@ describe("/api/games", () => {
       .mockReset()
       .mockResolvedValue({ uid: "administrador-1" });
     apiMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
-    apiMocks.endWaitingRoom.mockReset().mockResolvedValue("ABC234");
+    apiMocks.endWaitingRoom.mockReset().mockResolvedValue({
+      ...room,
+      phase: "finished",
+    });
+    apiMocks.presentWaitingRoom.mockReset().mockResolvedValue(room);
     apiMocks.getManagedWaitingRoom.mockReset().mockResolvedValue({
       room,
       participants: [],
@@ -51,11 +66,26 @@ describe("/api/games", () => {
       participants: [],
     });
     apiMocks.listManagedWaitingRooms.mockReset().mockResolvedValue([room]);
+    apiMocks.listArchivedWaitingRooms.mockReset().mockResolvedValue([]);
+    apiMocks.archiveWaitingRoom.mockReset().mockResolvedValue({
+      id: "ABC234",
+      name: "Quiz de Ciências",
+      createdAt: 1_000,
+      archivedAt: 2_000,
+      participantCount: 0,
+    });
+    apiMocks.restoreWaitingRoom.mockReset().mockResolvedValue({
+      ...room,
+      phase: "finished",
+    });
+    apiMocks.deleteArchivedWaitingRoom.mockReset().mockResolvedValue("ABC234");
   });
 
   it("cria uma sala para o administrador validado", async () => {
     const request = new Request("https://quizumba.example/api/games", {
       method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Quiz de Ciências" }),
     });
 
     const response = await POST(request);
@@ -64,6 +94,7 @@ describe("/api/games", () => {
     await expect(response.json()).resolves.toEqual({ room });
     expect(apiMocks.createWaitingRoom).toHaveBeenCalledWith(
       "administrador-1",
+      { name: "Quiz de Ciências" },
       apiMocks.services,
     );
   });
@@ -108,6 +139,18 @@ describe("/api/games", () => {
     );
   });
 
+  it("lista as salas arquivadas do administrador", async () => {
+    const response = await GET(
+      new Request("https://quizumba.example/api/games?scope=archived"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(apiMocks.listArchivedWaitingRooms).toHaveBeenCalledWith(
+      "administrador-1",
+      apiMocks.services,
+    );
+  });
+
   it("não cria sala quando a autorização falha", async () => {
     apiMocks.authorizeAdministratorRequest.mockRejectedValue(
       new HttpError(
@@ -118,7 +161,10 @@ describe("/api/games", () => {
     );
 
     const response = await POST(
-      new Request("https://quizumba.example/api/games", { method: "POST" }),
+      new Request("https://quizumba.example/api/games", {
+        method: "POST",
+        body: JSON.stringify({ name: "Quiz de Ciências" }),
+      }),
     );
 
     expect(response.status).toBe(403);
@@ -164,7 +210,7 @@ describe("/api/games", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      endedGameId: "ABC234",
+      room: { ...room, phase: "finished" },
     });
     expect(apiMocks.endWaitingRoom).toHaveBeenCalledWith(
       "administrador-1",
@@ -173,4 +219,28 @@ describe("/api/games", () => {
     );
     expect(apiMocks.removeWaitingRoomParticipant).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["present-room", "presentWaitingRoom"],
+    ["archive-room", "archiveWaitingRoom"],
+    ["restore-room", "restoreWaitingRoom"],
+    ["delete-room", "deleteArchivedWaitingRoom"],
+  ] as const)(
+    "encaminha a ação %s para o serviço correto",
+    async (action, mockName) => {
+      const response = await PATCH(
+        new Request("https://quizumba.example/api/games", {
+          method: "PATCH",
+          body: JSON.stringify({ gameId: "ABC234", action }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(apiMocks[mockName]).toHaveBeenCalledWith(
+        "administrador-1",
+        { gameId: "ABC234", action },
+        apiMocks.services,
+      );
+    },
+  );
 });

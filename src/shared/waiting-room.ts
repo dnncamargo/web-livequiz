@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const WAITING_ROOM_CODE_LENGTH = 6;
 export const WAITING_ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export const WAITING_ROOM_NAME_MIN_LENGTH = 2;
+export const WAITING_ROOM_NAME_MAX_LENGTH = 60;
 
 export const waitingRoomCodeSchema = z
   .string()
@@ -10,25 +12,58 @@ export const waitingRoomCodeSchema = z
     "O código da sala deve ter seis caracteres válidos.",
   );
 
+const normalizedWaitingRoomNameSchema = z
+  .string()
+  .min(
+    WAITING_ROOM_NAME_MIN_LENGTH,
+    "Informe um nome com pelo menos dois caracteres.",
+  )
+  .max(
+    WAITING_ROOM_NAME_MAX_LENGTH,
+    "O nome da sala pode ter no máximo 60 caracteres.",
+  );
+
+export const waitingRoomNameSchema = z
+  .string()
+  .transform((name) => name.trim().replace(/\s+/g, " "))
+  .pipe(normalizedWaitingRoomNameSchema);
+
+export const waitingRoomPhaseSchema = z.enum(["waiting", "finished"]);
+
 export const publicWaitingRoomSchema = z
   .object({
     id: waitingRoomCodeSchema,
-    phase: z.literal("waiting"),
+    name: normalizedWaitingRoomNameSchema.optional(),
+    phase: waitingRoomPhaseSchema,
     createdAt: z.number().int().nonnegative(),
     participantCount: z.number().int().nonnegative(),
   })
   .strict();
 
+export const createWaitingRoomRequestSchema = z
+  .object({ name: waitingRoomNameSchema })
+  .strict();
+
 export const createWaitingRoomResponseSchema = z
-  .object({
-    room: publicWaitingRoomSchema,
-  })
+  .object({ room: publicWaitingRoomSchema })
   .strict();
 
 export const waitingRoomLibraryResponseSchema = z
+  .object({ rooms: z.array(publicWaitingRoomSchema) })
+  .strict();
+
+export const archivedWaitingRoomSchema = z
   .object({
-    rooms: z.array(publicWaitingRoomSchema),
+    id: waitingRoomCodeSchema,
+    name: normalizedWaitingRoomNameSchema,
+    createdAt: z.number().int().nonnegative(),
+    archivedAt: z.number().int().nonnegative(),
+    participantCount: z.number().int().nonnegative(),
   })
+  .strict();
+
+export const archivedWaitingRoomLibraryResponseSchema = z
+  .object({ rooms: z.array(archivedWaitingRoomSchema) })
   .strict();
 
 export const endWaitingRoomRequestSchema = z
@@ -38,10 +73,44 @@ export const endWaitingRoomRequestSchema = z
   })
   .strict();
 
-export const endWaitingRoomResponseSchema = z
+export const presentWaitingRoomRequestSchema = z
   .object({
-    endedGameId: waitingRoomCodeSchema,
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("present-room"),
   })
+  .strict();
+
+export const archiveWaitingRoomRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("archive-room"),
+  })
+  .strict();
+
+export const restoreWaitingRoomRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("restore-room"),
+  })
+  .strict();
+
+export const deleteArchivedWaitingRoomRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("delete-room"),
+  })
+  .strict();
+
+export const waitingRoomMutationResponseSchema = z
+  .object({ room: publicWaitingRoomSchema })
+  .strict();
+
+export const archivedWaitingRoomMutationResponseSchema = z
+  .object({ archivedRoom: archivedWaitingRoomSchema })
+  .strict();
+
+export const deleteArchivedWaitingRoomResponseSchema = z
+  .object({ deletedGameId: waitingRoomCodeSchema })
   .strict();
 
 export const apiErrorResponseSchema = z
@@ -56,4 +125,20 @@ export const apiErrorResponseSchema = z
   .strict();
 
 export type PublicWaitingRoom = z.infer<typeof publicWaitingRoomSchema>;
+export type CreateWaitingRoomRequest = z.infer<
+  typeof createWaitingRoomRequestSchema
+>;
+export type ArchivedWaitingRoom = z.infer<typeof archivedWaitingRoomSchema>;
 export type EndWaitingRoomRequest = z.infer<typeof endWaitingRoomRequestSchema>;
+export type PresentWaitingRoomRequest = z.infer<
+  typeof presentWaitingRoomRequestSchema
+>;
+export type ArchiveWaitingRoomRequest = z.infer<
+  typeof archiveWaitingRoomRequestSchema
+>;
+export type RestoreWaitingRoomRequest = z.infer<
+  typeof restoreWaitingRoomRequestSchema
+>;
+export type DeleteArchivedWaitingRoomRequest = z.infer<
+  typeof deleteArchivedWaitingRoomRequestSchema
+>;

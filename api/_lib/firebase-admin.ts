@@ -33,6 +33,21 @@ export interface FirebaseAdminServices {
   findWaitingRooms: (
     ownerId: string,
   ) => Promise<Array<{ gameId: string; room: unknown }>>;
+  setWaitingRoomPhase: (
+    gameId: string,
+    phase: "waiting" | "finished",
+    changedAt: number,
+    participantIds: string[],
+  ) => Promise<void>;
+  saveArchivedWaitingRoom: (
+    gameId: string,
+    room: Record<string, unknown>,
+  ) => Promise<void>;
+  getArchivedWaitingRooms: (
+    ownerId: string,
+  ) => Promise<Array<{ gameId: string; room: unknown }>>;
+  getArchivedWaitingRoom: (gameId: string) => Promise<unknown | null>;
+  deleteArchivedWaitingRoom: (gameId: string) => Promise<void>;
   registerParticipant: (
     gameId: string,
     participantId: string,
@@ -271,6 +286,52 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         gameId,
         room,
       }));
+    },
+    setWaitingRoomPhase: async (gameId, phase, changedAt, participantIds) => {
+      const updates: Record<string, unknown> = {
+        [`liveGames/${gameId}/phase`]: phase,
+        [`liveGames/${gameId}/updatedAt`]: changedAt,
+        [`liveGames/${gameId}/endedAt`]:
+          phase === "finished" ? changedAt : null,
+        [`publicGames/${gameId}/phase`]: phase,
+      };
+
+      if (phase === "finished") {
+        for (const participantId of participantIds) {
+          updates[
+            `liveGames/${gameId}/participants/${participantId}/presence/connections`
+          ] = null;
+          updates[
+            `liveGames/${gameId}/participants/${participantId}/presence/lastDisconnectedAt`
+          ] = changedAt;
+        }
+      }
+
+      await database.ref().update(updates);
+    },
+    saveArchivedWaitingRoom: async (gameId, room) => {
+      await firestore.doc(`archivedWaitingRooms/${gameId}`).create(room);
+    },
+    getArchivedWaitingRooms: async (ownerId) => {
+      const snapshot = await firestore
+        .collection("archivedWaitingRooms")
+        .where("ownerId", "==", ownerId)
+        .get();
+
+      return snapshot.docs.map((document) => ({
+        gameId: document.id,
+        room: document.data(),
+      }));
+    },
+    getArchivedWaitingRoom: async (gameId) => {
+      const snapshot = await firestore
+        .doc(`archivedWaitingRooms/${gameId}`)
+        .get();
+
+      return snapshot.exists ? snapshot.data() : null;
+    },
+    deleteArchivedWaitingRoom: async (gameId) => {
+      await firestore.doc(`archivedWaitingRooms/${gameId}`).delete();
     },
     registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
       let outcome: ParticipantRegistrationOutcome = "room-not-found";
