@@ -6,7 +6,9 @@ const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
   authorizeAdministratorRequest: vi.fn(),
   createWaitingRoom: vi.fn(),
+  endWaitingRoom: vi.fn(),
   getManagedWaitingRoom: vi.fn(),
+  listManagedWaitingRooms: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
 }));
 
@@ -20,7 +22,9 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 
 vi.mock("./_lib/waiting-room-service.js", () => ({
   createWaitingRoom: apiMocks.createWaitingRoom,
+  endWaitingRoom: apiMocks.endWaitingRoom,
   getManagedWaitingRoom: apiMocks.getManagedWaitingRoom,
+  listManagedWaitingRooms: apiMocks.listManagedWaitingRooms,
   removeWaitingRoomParticipant: apiMocks.removeWaitingRoomParticipant,
 }));
 
@@ -37,6 +41,7 @@ describe("/api/games", () => {
       .mockReset()
       .mockResolvedValue({ uid: "administrador-1" });
     apiMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
+    apiMocks.endWaitingRoom.mockReset().mockResolvedValue("ABC234");
     apiMocks.getManagedWaitingRoom.mockReset().mockResolvedValue({
       room,
       participants: [],
@@ -45,6 +50,7 @@ describe("/api/games", () => {
       room,
       participants: [],
     });
+    apiMocks.listManagedWaitingRooms.mockReset().mockResolvedValue([room]);
   });
 
   it("cria uma sala para o administrador validado", async () => {
@@ -86,6 +92,19 @@ describe("/api/games", () => {
       "administrador-1",
       apiMocks.services,
       undefined,
+    );
+  });
+
+  it("lista a biblioteca de salas do administrador", async () => {
+    const response = await GET(
+      new Request("https://quizumba.example/api/games?scope=library"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ rooms: [room] });
+    expect(apiMocks.listManagedWaitingRooms).toHaveBeenCalledWith(
+      "administrador-1",
+      apiMocks.services,
     );
   });
 
@@ -132,5 +151,26 @@ describe("/api/games", () => {
       },
       apiMocks.services,
     );
+  });
+
+  it("encerra uma sala administrada", async () => {
+    const request = new Request("https://quizumba.example/api/games", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gameId: "ABC234", action: "end-room" }),
+    });
+
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      endedGameId: "ABC234",
+    });
+    expect(apiMocks.endWaitingRoom).toHaveBeenCalledWith(
+      "administrador-1",
+      { gameId: "ABC234", action: "end-room" },
+      apiMocks.services,
+    );
+    expect(apiMocks.removeWaitingRoomParticipant).not.toHaveBeenCalled();
   });
 });

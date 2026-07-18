@@ -328,6 +328,141 @@ a:hover {
   font-size: 0.95rem;
 }
 
+.management-library-card {
+  width: min(100%, 1040px);
+  text-align: left;
+}
+
+.management-header,
+.administrator-account,
+.room-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.management-header h1 {
+  margin-bottom: 0;
+}
+
+.management-header p {
+  margin: 14px 0 0;
+}
+
+.management-header .primary-button {
+  flex: 0 0 auto;
+}
+
+.room-library {
+  display: grid;
+  gap: 20px;
+  margin: 36px 0;
+}
+
+.room-library-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room-library-list > li {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 6%);
+}
+
+.room-library-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.room-library-summary > strong {
+  color: #ffe25b;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  letter-spacing: 0.1em;
+}
+
+.room-library-summary small,
+.administrator-account small,
+.room-danger-zone span,
+.room-closure-confirmation span {
+  color: rgb(255 255 255 / 66%);
+}
+
+.room-status {
+  color: #55e6a5;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.room-library-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.room-closure-confirmation {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.room-closure-confirmation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empty-library {
+  padding: 28px;
+  border: 1px dashed rgb(255 255 255 / 24%);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 4%);
+  text-align: center;
+}
+
+.empty-library p {
+  margin: 8px 0 0;
+}
+
+.administrator-account,
+.room-danger-zone {
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.administrator-account > div,
+.room-danger-zone > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.administrator-account span {
+  color: rgb(255 255 255 / 62%);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.room-danger-zone {
+  border-color: rgb(255 140 169 / 38%);
+  text-align: left;
+}
+
 .waiting-room-card {
   width: min(100%, 820px);
 }
@@ -691,6 +826,29 @@ a:hover {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
+  }
+
+  .management-header,
+  .administrator-account,
+  .room-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .management-header .primary-button,
+  .administrator-account .secondary-button,
+  .room-danger-zone > .danger-button {
+    width: 100%;
+  }
+
+  .room-library-list {
+    grid-template-columns: 1fr;
+  }
+
+  .room-library-actions,
+  .room-closure-confirmation > div {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

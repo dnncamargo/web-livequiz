@@ -9,6 +9,7 @@
       }
     },
     "liveGames": {
+      ".indexOn": ["ownerId"],
       "$gameId": {
         ".read": false,
         ".write": false,

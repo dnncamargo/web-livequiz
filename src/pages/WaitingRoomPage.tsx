@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
 import {
+  endWaitingRoom,
   removeWaitingRoomParticipant,
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
@@ -17,6 +18,7 @@ const MODERATION_LABELS = {
 export function WaitingRoomPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [participantPendingRemoval, setParticipantPendingRemoval] = useState<
     string | null
   >(null);
@@ -24,6 +26,8 @@ export function WaitingRoomPage() {
     string | null
   >(null);
   const [participantActionError, setParticipantActionError] = useState("");
+  const [confirmingRoomClosure, setConfirmingRoomClosure] = useState(false);
+  const [endingRoom, setEndingRoom] = useState(false);
   const [refreshRevision, setRefreshRevision] = useState(0);
   const publicRoomState = usePublicWaitingRoom(id);
   const managedRoomState = useManagedWaitingRoom(
@@ -61,6 +65,28 @@ export function WaitingRoomPage() {
       );
     } finally {
       setRemovingParticipantId(null);
+    }
+  }
+
+  async function confirmRoomClosure() {
+    if (!user) {
+      return;
+    }
+
+    setEndingRoom(true);
+    setParticipantActionError("");
+
+    try {
+      await endWaitingRoom(user, { gameId: id, action: "end-room" });
+      navigate("/gerenciar");
+    } catch (error) {
+      console.error("Erro ao encerrar sala de espera:", error);
+      setParticipantActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível encerrar a sala. Tente novamente.",
+      );
+      setEndingRoom(false);
     }
   }
 
@@ -142,7 +168,7 @@ export function WaitingRoomPage() {
 
           {participantActionError && (
             <div className="test-result test-result-error" role="alert">
-              <strong>Não foi possível remover o participante</strong>
+              <strong>Não foi possível concluir a ação</strong>
               <p>{participantActionError}</p>
             </div>
           )}
@@ -233,8 +259,55 @@ export function WaitingRoomPage() {
           outro dispositivo, mantendo esta sessão administrativa aberta.
         </p>
 
+        <section
+          className="room-danger-zone"
+          aria-labelledby="close-room-title"
+        >
+          <div>
+            <strong id="close-room-title">Encerrar esta sala</strong>
+            <span>
+              Finaliza a sala para todos. Sair da conta administrativa não
+              executa esta ação.
+            </span>
+          </div>
+
+          {!confirmingRoomClosure && (
+            <button
+              type="button"
+              className="danger-button"
+              onClick={() => setConfirmingRoomClosure(true)}
+            >
+              Encerrar sala
+            </button>
+          )}
+
+          {confirmingRoomClosure && (
+            <div className="room-closure-confirmation">
+              <span>Todos os participantes serão desconectados.</span>
+              <div>
+                <button
+                  type="button"
+                  className="danger-button compact-button"
+                  disabled={endingRoom}
+                  onClick={() => void confirmRoomClosure()}
+                >
+                  {endingRoom ? "Encerrando..." : "Confirmar encerramento"}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button compact-button"
+                  disabled={endingRoom}
+                  onClick={() => setConfirmingRoomClosure(false)}
+                >
+                  Manter sala aberta
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
         <nav className="navigation">
-          <Link to="/gerenciar">Voltar ao gerenciamento</Link>
+          <Link to="/gerenciar">Voltar à biblioteca de salas</Link>
           <Link to={`/?sala=${room.id}`}>Abrir página do participante</Link>
         </nav>
       </section>

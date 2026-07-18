@@ -25,6 +25,9 @@ implementados:
 - bloqueio de nicknames duplicados e publicação apenas da contagem de
   participantes no estado público;
 - recuperação da sala de espera ativa ao retornar ao gerenciamento;
+- biblioteca administrativa com múltiplas salas ativas e criação sempre
+  disponível;
+- encerramento explícito da sala, separado da ação de sair da conta Google;
 - lista privada de participantes atualizada no painel administrativo assim que
   a contagem pública muda, com verificação periódica como contingência;
 - remoção administrativa com confirmação, encerramento das conexões ativas e
@@ -99,14 +102,19 @@ O navegador guarda somente o código da sala ativa. Ao atualizar a página, o
 registro é consultado novamente no servidor pelo UID anônimo; nickname, status
 de moderação e pontuação não podem ser alterados diretamente pelo cliente.
 
-A consulta `GET /api/games` é exclusiva para administradores autorizados. Sem
-um código, ela recupera a sala de espera ativa pertencente ao administrador;
-com `gameId`, retorna a sala e sua lista privada de participantes. Essa lista
+A consulta `GET /api/games` é exclusiva para administradores autorizados. Com
+`scope=library`, ela recupera as salas ativas pertencentes ao administrador;
+com `gameId`, retorna uma sala e sua lista privada de participantes. Essa lista
 não é copiada para `publicGames`.
 
 A operação autenticada `PATCH /api/games` remove um participante somente quando
 a sala pertence ao administrador solicitante. A remoção marca o registro como
 removido, encerra suas conexões e atualiza apenas a contagem pública.
+
+A mesma função encerra uma sala somente após confirmar sua propriedade. O
+encerramento remove o estado transitório privado e sua projeção pública,
+desconecta os participantes e impede novas entradas. Sair da conta
+administrativa não encerra nenhuma sala.
 
 O link `/?sala=CODIGO` confirma publicamente a sala ativa e preenche o código
 de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
@@ -160,6 +168,8 @@ No Realtime Database:
   administrativos, respostas individuais ou a alternativa correta antes da
   revelação;
 - `liveGames/{gameId}` permanece privado;
+- `liveGames` possui somente um índice de servidor por `ownerId`, sem conceder
+  leitura ao navegador, para montar a biblioteca administrativa;
 - um participante anônimo pode manter apenas as próprias conexões e somente
   depois que seu registro tiver sido criado na partida;
 - esse participante pode ler apenas o próprio `moderationStatus`, necessário

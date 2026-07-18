@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWaitingRoom,
+  endWaitingRoom,
   getManagedWaitingRoom,
+  getManagedWaitingRooms,
   removeWaitingRoomParticipant,
   subscribeToPublicWaitingRoom,
   WaitingRoomRequestError,
@@ -130,6 +132,33 @@ describe("cliente da sala de espera", () => {
     });
   });
 
+  it("recupera a biblioteca de salas do administrador", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const rooms = [
+      {
+        id: "ABC234",
+        phase: "waiting",
+        createdAt: 1_000,
+        participantCount: 1,
+      },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ rooms }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getManagedWaitingRooms({ getIdToken })).resolves.toEqual(
+      rooms,
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/api/games?scope=library", {
+      method: "GET",
+      headers: { authorization: "Bearer token-administrativo" },
+    });
+  });
+
   it("solicita a remoção administrativa de um participante", async () => {
     const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
     const responseBody = {
@@ -181,6 +210,29 @@ describe("cliente da sala de espera", () => {
     });
   });
 
+  it("solicita o encerramento administrativo da sala", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ endedGameId: "ABC234" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      endWaitingRoom({ getIdToken }, { gameId: "ABC234", action: "end-room" }),
+    ).resolves.toBe("ABC234");
+    expect(fetchMock).toHaveBeenCalledWith("/api/games", {
+      method: "PATCH",
+      headers: {
+        authorization: "Bearer token-administrativo",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ gameId: "ABC234", action: "end-room" }),
+    });
+  });
+
   it("explica quando o Vite devolve a aplicação no lugar da API", async () => {
     vi.stubGlobal(
       "fetch",
@@ -197,7 +249,7 @@ describe("cliente da sala de espera", () => {
     ).rejects.toEqual(
       new WaitingRoomRequestError(
         "api-unavailable",
-        "A API de criação de salas não está disponível neste ambiente. Publique a versão atual na Vercel e tente novamente.",
+        "A API de salas não está disponível neste ambiente. Publique a versão atual na Vercel e tente novamente.",
       ),
     );
   });

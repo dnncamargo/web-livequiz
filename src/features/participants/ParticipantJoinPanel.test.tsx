@@ -17,6 +17,21 @@ const joinPanelMocks = vi.hoisted(() => ({
     status: null as null | "waiting-approval" | "approved" | "removed",
     error: null as string | null,
   },
+  publicRoom: {
+    room: {
+      id: "ABC234",
+      phase: "waiting" as const,
+      createdAt: 1_000,
+      participantCount: 1,
+    } as null | {
+      id: string;
+      phase: "waiting";
+      createdAt: number;
+      participantCount: number;
+    },
+    loading: false,
+    error: null as string | null,
+  },
 }));
 
 vi.mock("./participant-session", async (importOriginal) => {
@@ -39,6 +54,13 @@ vi.mock("./use-participant-presence", () => ({
 
 vi.mock("./use-participant-moderation-status", () => ({
   useParticipantModerationStatus: () => joinPanelMocks.moderation,
+}));
+
+vi.mock("../live-game/use-public-waiting-room", () => ({
+  usePublicWaitingRoom: (gameId: string) =>
+    gameId
+      ? joinPanelMocks.publicRoom
+      : { room: null, loading: false, error: null },
 }));
 
 const participantUser = {
@@ -66,6 +88,14 @@ describe("ParticipantJoinPanel", () => {
     joinPanelMocks.presenceGameId = "";
     joinPanelMocks.moderation.status = null;
     joinPanelMocks.moderation.error = null;
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      phase: "waiting",
+      createdAt: 1_000,
+      participantCount: 1,
+    };
+    joinPanelMocks.publicRoom.loading = false;
+    joinPanelMocks.publicRoom.error = null;
   });
 
   afterEach(cleanup);
@@ -117,6 +147,22 @@ describe("ParticipantJoinPanel", () => {
     expect(
       screen.getByRole("button", { name: "Procurar outra sala" }),
     ).toBeInTheDocument();
+  });
+
+  it("diferencia o encerramento da sala da remoção individual", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.publicRoom.room = null;
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(
+      await screen.findByText("Esta sala foi encerrada"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sala encerrada")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Você foi removido desta sala"),
+    ).not.toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBeNull();
   });
 
   it("preenche o código identificado no link da sala", async () => {

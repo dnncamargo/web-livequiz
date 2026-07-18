@@ -22,6 +22,7 @@ function createServices(): FirebaseAdminServices {
     removeWaitingRoom: vi.fn(),
     getWaitingRoom: vi.fn(),
     findActiveWaitingRoom: vi.fn(),
+    findWaitingRooms: vi.fn(),
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
     publishParticipantCount: vi.fn(),

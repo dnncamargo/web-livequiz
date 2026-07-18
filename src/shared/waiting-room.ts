@@ -25,6 +25,25 @@ export const createWaitingRoomResponseSchema = z
   })
   .strict();
 
+export const waitingRoomLibraryResponseSchema = z
+  .object({
+    rooms: z.array(publicWaitingRoomSchema),
+  })
+  .strict();
+
+export const endWaitingRoomRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("end-room"),
+  })
+  .strict();
+
+export const endWaitingRoomResponseSchema = z
+  .object({
+    endedGameId: waitingRoomCodeSchema,
+  })
+  .strict();
+
 export const apiErrorResponseSchema = z
   .object({
     error: z
@@ -37,3 +56,4 @@ export const apiErrorResponseSchema = z
   .strict();
 
 export type PublicWaitingRoom = z.infer<typeof publicWaitingRoomSchema>;
+export type EndWaitingRoomRequest = z.infer<typeof endWaitingRoomRequestSchema>;

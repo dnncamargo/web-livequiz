@@ -2,10 +2,13 @@ import { authorizeAdministratorRequest } from "./_lib/administrator-authorizatio
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 import {
   createWaitingRoom,
+  endWaitingRoom,
   getManagedWaitingRoom,
+  listManagedWaitingRooms,
   removeWaitingRoomParticipant,
 } from "./_lib/waiting-room-service.js";
 import { removeWaitingRoomParticipantRequestSchema } from "../src/shared/participant.js";
+import { endWaitingRoomRequestSchema } from "../src/shared/waiting-room.js";
 import { HttpError } from "./_lib/http-error.js";
 
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit) {
@@ -40,7 +43,24 @@ export async function GET(request: Request): Promise<Response> {
       request,
       services,
     );
-    const gameId = new URL(request.url).searchParams.get("gameId") ?? undefined;
+    const searchParams = new URL(request.url).searchParams;
+    const gameId = searchParams.get("gameId") ?? undefined;
+    const scope = searchParams.get("scope");
+
+    if (scope === "library" && !gameId) {
+      const rooms = await listManagedWaitingRooms(administrator.uid, services);
+
+      return jsonResponse({ rooms }, 200);
+    }
+
+    if (scope) {
+      throw new HttpError(
+        400,
+        "invalid-room-query",
+        "A consulta de salas informada é inválida.",
+      );
+    }
+
     const waitingRoom = await getManagedWaitingRoom(
       administrator.uid,
       services,
@@ -87,20 +107,32 @@ export async function PATCH(request: Request): Promise<Response> {
       );
     }
 
-    const inputResult =
+    const endRoomResult = endWaitingRoomRequestSchema.safeParse(payload);
+
+    if (endRoomResult.success) {
+      const endedGameId = await endWaitingRoom(
+        administrator.uid,
+        endRoomResult.data,
+        services,
+      );
+
+      return jsonResponse({ endedGameId }, 200);
+    }
+
+    const removeParticipantResult =
       removeWaitingRoomParticipantRequestSchema.safeParse(payload);
 
-    if (!inputResult.success) {
+    if (!removeParticipantResult.success) {
       throw new HttpError(
         400,
-        "invalid-participant-action",
-        inputResult.error.issues[0]?.message ?? "Revise a ação solicitada.",
+        "invalid-room-action",
+        "Revise a ação solicitada para a sala.",
       );
     }
 
     const waitingRoom = await removeWaitingRoomParticipant(
       administrator.uid,
-      inputResult.data,
+      removeParticipantResult.data,
       services,
     );
 

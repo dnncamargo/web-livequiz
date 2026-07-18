@@ -30,6 +30,9 @@ export interface FirebaseAdminServices {
   findActiveWaitingRoom: (
     ownerId: string,
   ) => Promise<{ gameId: string; room: unknown } | null>;
+  findWaitingRooms: (
+    ownerId: string,
+  ) => Promise<Array<{ gameId: string; room: unknown }>>;
   registerParticipant: (
     gameId: string,
     participantId: string,
@@ -251,6 +254,23 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         })[0];
 
       return activeRoom ? { gameId: activeRoom[0], room: activeRoom[1] } : null;
+    },
+    findWaitingRooms: async (ownerId) => {
+      const snapshot = await database
+        .ref("liveGames")
+        .orderByChild("ownerId")
+        .equalTo(ownerId)
+        .get();
+      const rooms: unknown = snapshot.val();
+
+      if (!isRecord(rooms)) {
+        return [];
+      }
+
+      return Object.entries(rooms).map(([gameId, room]) => ({
+        gameId,
+        room,
+      }));
     },
     registerParticipant: async (gameId, participantId, nickname, joinedAt) => {
       let outcome: ParticipantRegistrationOutcome = "room-not-found";

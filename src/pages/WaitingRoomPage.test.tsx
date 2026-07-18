@@ -48,6 +48,7 @@ const managedRoomHookMock = vi.hoisted(() => ({
   },
   gameId: "",
   refreshRevision: "" as string | number,
+  endWaitingRoom: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
 }));
 
@@ -76,6 +77,7 @@ vi.mock("../features/live-game/use-managed-waiting-room", () => ({
 
 vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
+  endWaitingRoom: managedRoomHookMock.endWaitingRoom,
   removeWaitingRoomParticipant:
     managedRoomHookMock.removeWaitingRoomParticipant,
 }));
@@ -96,6 +98,7 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.state.error = null;
     managedRoomHookMock.gameId = "";
     managedRoomHookMock.refreshRevision = "";
+    managedRoomHookMock.endWaitingRoom.mockReset().mockResolvedValue("ABC234");
     managedRoomHookMock.removeWaitingRoomParticipant
       .mockReset()
       .mockResolvedValue(null);
@@ -246,5 +249,31 @@ describe("WaitingRoomPage", () => {
         action: "remove",
       },
     );
+  });
+
+  it("confirma o encerramento e volta para a biblioteca", async () => {
+    const browserUser = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/gerenciar/sala/ABC234"]}>
+        <Routes>
+          <Route path="/gerenciar/sala/:id" element={<WaitingRoomPage />} />
+          <Route path="/gerenciar" element={<p>Biblioteca de salas</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Encerrar sala" }),
+    );
+    await browserUser.click(
+      screen.getByRole("button", { name: "Confirmar encerramento" }),
+    );
+
+    expect(managedRoomHookMock.endWaitingRoom).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "administrador-1" }),
+      { gameId: "ABC234", action: "end-room" },
+    );
+    expect(await screen.findByText("Biblioteca de salas")).toBeInTheDocument();
   });
 });

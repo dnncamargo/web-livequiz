@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import {
   createWaitingRoom,
+  endWaitingRoom,
   generateWaitingRoomCode,
   getManagedWaitingRoom,
+  listManagedWaitingRooms,
   removeWaitingRoomParticipant,
 } from "./waiting-room-service.js";
 
@@ -17,6 +19,7 @@ function createServices(): FirebaseAdminServices {
     removeWaitingRoom: vi.fn().mockResolvedValue(undefined),
     getWaitingRoom: vi.fn(),
     findActiveWaitingRoom: vi.fn(),
+    findWaitingRooms: vi.fn(),
     registerParticipant: vi.fn(),
     getParticipant: vi.fn(),
     publishParticipantCount: vi.fn(),
@@ -147,6 +150,42 @@ describe("serviço de sala de espera", () => {
     );
   });
 
+  it("lista as salas do administrador da mais recente para a mais antiga", async () => {
+    const services = createServices();
+    vi.mocked(services.findWaitingRooms).mockResolvedValue([
+      {
+        gameId: "ABC234",
+        room: {
+          ownerId: "administrador-1",
+          phase: "waiting",
+          createdAt: 1_000,
+        },
+      },
+      {
+        gameId: "DEF567",
+        room: {
+          ownerId: "administrador-1",
+          phase: "waiting",
+          createdAt: 2_000,
+          participants: {
+            "participante-1": {
+              nickname: "Cometa",
+              moderationStatus: "approved",
+              joinedAt: 2_100,
+            },
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      listManagedWaitingRooms("administrador-1", services),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: "DEF567", participantCount: 1 }),
+      expect.objectContaining({ id: "ABC234", participantCount: 0 }),
+    ]);
+  });
+
   it("impede que outro administrador consulte a sala", async () => {
     const services = createServices();
     vi.mocked(services.getWaitingRoom).mockResolvedValue({
@@ -243,5 +282,44 @@ describe("serviço de sala de espera", () => {
       code: "waiting-room-owner-required",
     });
     expect(services.removeParticipant).not.toHaveBeenCalled();
+  });
+
+  it("encerra somente a sala pertencente ao administrador", async () => {
+    const services = createServices();
+    vi.mocked(services.getWaitingRoom).mockResolvedValue({
+      ownerId: "administrador-1",
+      phase: "waiting",
+      createdAt: 1_000,
+    });
+
+    await expect(
+      endWaitingRoom(
+        "administrador-1",
+        { gameId: "ABC234", action: "end-room" },
+        services,
+      ),
+    ).resolves.toBe("ABC234");
+    expect(services.removeWaitingRoom).toHaveBeenCalledWith("ABC234");
+  });
+
+  it("não encerra uma sala pertencente a outro administrador", async () => {
+    const services = createServices();
+    vi.mocked(services.getWaitingRoom).mockResolvedValue({
+      ownerId: "outro-administrador",
+      phase: "waiting",
+      createdAt: 1_000,
+    });
+
+    await expect(
+      endWaitingRoom(
+        "administrador-1",
+        { gameId: "ABC234", action: "end-room" },
+        services,
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: "waiting-room-owner-required",
+    });
+    expect(services.removeWaitingRoom).not.toHaveBeenCalled();
   });
 });

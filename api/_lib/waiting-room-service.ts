@@ -3,8 +3,10 @@ import { z } from "zod";
 import {
   WAITING_ROOM_CODE_ALPHABET,
   WAITING_ROOM_CODE_LENGTH,
+  endWaitingRoomRequestSchema,
   publicWaitingRoomSchema,
   waitingRoomCodeSchema,
+  type EndWaitingRoomRequest,
   type PublicWaitingRoom,
 } from "../../src/shared/waiting-room.js";
 import {
@@ -58,6 +60,66 @@ export function generateWaitingRoomCode(
 
     return character;
   }).join("");
+}
+
+function buildManagedWaitingRoom(
+  ownerId: string,
+  gameId: string,
+  room: unknown,
+): ManagedWaitingRoom {
+  const roomResult = privateWaitingRoomSchema.safeParse(room);
+
+  if (!roomResult.success) {
+    throw new HttpError(
+      500,
+      "waiting-room-state-invalid",
+      "A sala de espera contém dados inválidos.",
+    );
+  }
+
+  if (roomResult.data.ownerId !== ownerId) {
+    throw new HttpError(
+      403,
+      "waiting-room-owner-required",
+      "Esta sala pertence a outro administrador.",
+    );
+  }
+
+  const participants = Object.entries(roomResult.data.participants ?? {})
+    .map(([participantId, value]) => {
+      const participantResult = privateParticipantSchema.safeParse(value);
+
+      if (!participantResult.success) {
+        return null;
+      }
+
+      const connections = participantResult.data.presence?.connections;
+
+      return {
+        participantId,
+        nickname: participantResult.data.nickname,
+        moderationStatus: participantResult.data.moderationStatus,
+        joinedAt: participantResult.data.joinedAt,
+        presenceStatus:
+          connections && Object.keys(connections).length > 0
+            ? ("connected" as const)
+            : ("disconnected" as const),
+      };
+    })
+    .filter((participant) => participant !== null)
+    .sort((first, second) => first.joinedAt - second.joinedAt);
+
+  return managedWaitingRoomResponseSchema.parse({
+    room: {
+      id: gameId,
+      phase: roomResult.data.phase,
+      createdAt: roomResult.data.createdAt,
+      participantCount: participants.filter(
+        ({ moderationStatus }) => moderationStatus !== "removed",
+      ).length,
+    },
+    participants,
+  });
 }
 
 export async function createWaitingRoom(
@@ -142,59 +204,36 @@ export async function getManagedWaitingRoom(
     );
   }
 
-  const roomResult = privateWaitingRoomSchema.safeParse(locatedRoom.room);
+  return buildManagedWaitingRoom(ownerId, locatedRoom.gameId, locatedRoom.room);
+}
 
-  if (!roomResult.success) {
-    throw new HttpError(
-      500,
-      "waiting-room-state-invalid",
-      "A sala de espera contém dados inválidos.",
-    );
-  }
+export async function listManagedWaitingRooms(
+  ownerId: string,
+  services: FirebaseAdminServices,
+): Promise<PublicWaitingRoom[]> {
+  const locatedRooms = await services.findWaitingRooms(ownerId);
 
-  if (roomResult.data.ownerId !== ownerId) {
-    throw new HttpError(
-      403,
-      "waiting-room-owner-required",
-      "Esta sala pertence a outro administrador.",
-    );
-  }
+  return locatedRooms
+    .map(({ gameId, room }) => buildManagedWaitingRoom(ownerId, gameId, room))
+    .map(({ room }) => room)
+    .sort((first, second) => second.createdAt - first.createdAt);
+}
 
-  const participants = Object.entries(roomResult.data.participants ?? {})
-    .map(([participantId, value]) => {
-      const participantResult = privateParticipantSchema.safeParse(value);
+export async function endWaitingRoom(
+  ownerId: string,
+  input: EndWaitingRoomRequest,
+  services: FirebaseAdminServices,
+): Promise<string> {
+  const parsedInput = endWaitingRoomRequestSchema.parse(input);
+  const waitingRoom = await getManagedWaitingRoom(
+    ownerId,
+    services,
+    parsedInput.gameId,
+  );
 
-      if (!participantResult.success) {
-        return null;
-      }
+  await services.removeWaitingRoom(waitingRoom.room.id);
 
-      const connections = participantResult.data.presence?.connections;
-
-      return {
-        participantId,
-        nickname: participantResult.data.nickname,
-        moderationStatus: participantResult.data.moderationStatus,
-        joinedAt: participantResult.data.joinedAt,
-        presenceStatus:
-          connections && Object.keys(connections).length > 0
-            ? ("connected" as const)
-            : ("disconnected" as const),
-      };
-    })
-    .filter((participant) => participant !== null)
-    .sort((first, second) => first.joinedAt - second.joinedAt);
-
-  return managedWaitingRoomResponseSchema.parse({
-    room: {
-      id: locatedRoom.gameId,
-      phase: roomResult.data.phase,
-      createdAt: roomResult.data.createdAt,
-      participantCount: participants.filter(
-        ({ moderationStatus }) => moderationStatus !== "removed",
-      ).length,
-    },
-    participants,
-  });
+  return waitingRoom.room.id;
 }
 
 export async function removeWaitingRoomParticipant(

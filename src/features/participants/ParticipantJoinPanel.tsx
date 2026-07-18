@@ -8,6 +8,7 @@ import {
   type JoinParticipantRequest,
   type ParticipantSession,
 } from "../../shared/participant";
+import { usePublicWaitingRoom } from "../live-game/use-public-waiting-room";
 import {
   clearActiveParticipantSession,
   joinParticipantSession,
@@ -61,6 +62,13 @@ export function ParticipantJoinPanel({
   const [restoring, setRestoring] = useState(true);
   const [requestFailure, setRequestFailure] =
     useState<ParticipantRequestFailure | null>(null);
+  const sessionRoom = usePublicWaitingRoom(participant?.gameId ?? "");
+  const roomEnded = Boolean(
+    participant &&
+    !sessionRoom.loading &&
+    !sessionRoom.room &&
+    !sessionRoom.error,
+  );
   const moderation = useParticipantModerationStatus(
     participant?.gameId ?? null,
     user.uid,
@@ -68,7 +76,9 @@ export function ParticipantJoinPanel({
   const effectiveModerationStatus =
     moderation.status ?? participant?.moderationStatus;
   const activePresenceGameId =
-    effectiveModerationStatus === "removed" ? null : participant?.gameId;
+    effectiveModerationStatus === "removed" || roomEnded
+      ? null
+      : participant?.gameId;
   const presence = useParticipantPresence(activePresenceGameId ?? null);
   const {
     register,
@@ -157,11 +167,11 @@ export function ParticipantJoinPanel({
           <div>
             <span>Situação</span>
             <strong>
-              {
-                MODERATION_STATUS_LABELS[
-                  effectiveModerationStatus ?? participant.moderationStatus
-                ]
-              }
+              {roomEnded
+                ? "Sala encerrada"
+                : MODERATION_STATUS_LABELS[
+                    effectiveModerationStatus ?? participant.moderationStatus
+                  ]}
             </strong>
           </div>
           <div>
@@ -170,21 +180,35 @@ export function ParticipantJoinPanel({
           </div>
         </div>
 
-        {presence.error && (
+        {presence.error && !roomEnded && (
           <div className="test-result test-result-error" role="alert">
             <strong>Falha na conexão com a sala</strong>
             <p>{presence.error}</p>
           </div>
         )}
 
-        {moderation.error && (
+        {moderation.error && !roomEnded && (
           <div className="test-result test-result-error" role="alert">
             <strong>Falha ao acompanhar sua entrada</strong>
             <p>{moderation.error}</p>
           </div>
         )}
 
-        {effectiveModerationStatus === "removed" && (
+        {roomEnded && (
+          <div className="test-result test-result-error" role="alert">
+            <strong>Esta sala foi encerrada</strong>
+            <p>O administrador finalizou a sala para todos os participantes.</p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={leaveCurrentRoom}
+            >
+              Procurar outra sala
+            </button>
+          </div>
+        )}
+
+        {!roomEnded && effectiveModerationStatus === "removed" && (
           <div className="test-result test-result-error" role="alert">
             <strong>Você foi removido desta sala</strong>
             <p>
@@ -200,7 +224,7 @@ export function ParticipantJoinPanel({
           </div>
         )}
 
-        {effectiveModerationStatus !== "removed" && (
+        {!roomEnded && effectiveModerationStatus !== "removed" && (
           <p>
             Seu nickname foi salvo. A escolha de avatar será liberada no próximo
             marco.
