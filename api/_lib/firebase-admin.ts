@@ -327,17 +327,30 @@ export function resolveParticipantAnswerTransaction(
     ...questionAnswers,
     [input.participantId]: answer,
   };
-  const activeParticipantIds = Object.entries(participants)
-    .filter(
-      ([, candidate]) =>
-        isRecord(candidate) &&
-        (candidate.moderationStatus === "waiting-approval" ||
-          candidate.moderationStatus === "approved"),
-    )
+  const presentParticipantIds = Object.entries(participants)
+    .filter(([participantId, candidate]) => {
+      if (
+        !isRecord(candidate) ||
+        (candidate.moderationStatus !== "waiting-approval" &&
+          candidate.moderationStatus !== "approved")
+      ) {
+        return false;
+      }
+
+      const presence = isRecord(candidate.presence) ? candidate.presence : {};
+      const connections = isRecord(presence.connections)
+        ? presence.connections
+        : {};
+
+      return (
+        participantId === input.participantId ||
+        Object.keys(connections).length > 0
+      );
+    })
     .map(([participantId]) => participantId);
-  const allParticipantsAnswered =
-    activeParticipantIds.length > 0 &&
-    activeParticipantIds.every(
+  const allPresentParticipantsAnswered =
+    presentParticipantIds.length > 0 &&
+    presentParticipantIds.every(
       (participantId) =>
         storedParticipantAnswerSchema.safeParse(
           updatedQuestionAnswers[participantId],
@@ -354,7 +367,7 @@ export function resolveParticipantAnswerTransaction(
       ...participantScores,
       [input.participantId]: totalScore,
     },
-    ...(allParticipantsAnswered
+    ...(allPresentParticipantsAnswered
       ? {
           phase: "revealing",
           phaseTiming: null,

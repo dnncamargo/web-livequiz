@@ -94,6 +94,11 @@ describe("transação de resposta do participante", () => {
       "participante-1": {
         nickname: "Estrela Azul",
         moderationStatus: "waiting-approval",
+        presence: {
+          connections: {
+            "conexao-1": { connectedAt: 9_000, lastSeenAt: 19_000 },
+          },
+        },
       },
     },
     participantScores: { "participante-1": 100 },
@@ -124,7 +129,7 @@ describe("transação de resposta do participante", () => {
     });
   });
 
-  it("aguarda todos os participantes ativos antes da revelação", () => {
+  it("aguarda todos os participantes presentes antes da revelação", () => {
     const gameWithTwoParticipants = {
       ...activeGame,
       participants: {
@@ -132,6 +137,11 @@ describe("transação de resposta do participante", () => {
         "participante-2": {
           nickname: "Cometa",
           moderationStatus: "approved",
+          presence: {
+            connections: {
+              "conexao-2": { connectedAt: 9_000, lastSeenAt: 19_000 },
+            },
+          },
         },
       },
     };
@@ -160,6 +170,35 @@ describe("transação de resposta do participante", () => {
     expect(lastDecision.game).toMatchObject({
       phase: "revealing",
       revealedCorrectOptionIds: ["opcao-a"],
+    });
+  });
+
+  it("não espera participantes desconectados para revelar", () => {
+    const gameWithDisconnectedParticipant = {
+      ...activeGame,
+      participants: {
+        ...activeGame.participants,
+        "participante-2": {
+          nickname: "Cometa",
+          moderationStatus: "approved",
+          presence: { connections: null },
+        },
+      },
+    };
+
+    const decision = resolveParticipantAnswerTransaction(
+      gameWithDisconnectedParticipant,
+      {
+        participantId: "participante-1",
+        questionId: "pergunta-1",
+        selectedOptionIds: ["opcao-a"],
+        answeredAt: 20_000,
+      },
+    );
+
+    expect(decision.game).toMatchObject({
+      phase: "revealing",
+      phaseTiming: null,
     });
   });
 
