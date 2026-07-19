@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   WAITING_ROOM_CODE_ALPHABET,
   WAITING_ROOM_CODE_LENGTH,
+  associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
   archivedWaitingRoomSchema,
   createWaitingRoomRequestSchema,
@@ -16,6 +17,7 @@ import {
   waitingRoomNameSchema,
   waitingRoomPhaseSchema,
   type ArchiveWaitingRoomRequest,
+  type AssociateWaitingRoomQuizRequest,
   type ArchivedWaitingRoom,
   type CreateWaitingRoomRequest,
   type DeleteArchivedWaitingRoomRequest,
@@ -272,6 +274,48 @@ export async function createWaitingRoom(
   );
 }
 
+export async function associateWaitingRoomQuiz(
+  ownerId: string,
+  input: AssociateWaitingRoomQuizRequest,
+  services: FirebaseAdminServices,
+  now: () => number = Date.now,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = associateWaitingRoomQuizRequestSchema.parse(input);
+  const waitingRoom = await getManagedWaitingRoom(
+    ownerId,
+    services,
+    parsedInput.gameId,
+  );
+  const quiz = parsedInput.quizId
+    ? await getOwnedQuiz(ownerId, parsedInput.quizId, services)
+    : null;
+
+  if (quiz && quiz.status !== "published") {
+    throw new HttpError(
+      409,
+      "quiz-not-published",
+      "Publique o quiz antes de associá-lo a uma sala.",
+    );
+  }
+
+  await services.setWaitingRoomQuiz(
+    parsedInput.gameId,
+    quiz ? { id: quiz.id, title: quiz.title } : null,
+    now(),
+  );
+
+  return publicWaitingRoomSchema.parse({
+    id: waitingRoom.room.id,
+    name: waitingRoom.room.name,
+    phase: waitingRoom.room.phase,
+    presentationStatus: waitingRoom.room.presentationStatus,
+    createdAt: waitingRoom.room.createdAt,
+    participantCount: waitingRoom.room.participantCount,
+    participants: waitingRoom.room.participants,
+    ...(quiz ? { quizId: quiz.id, quizTitle: quiz.title } : {}),
+  });
+}
+
 export async function getManagedWaitingRoom(
   ownerId: string,
   services: FirebaseAdminServices,
@@ -466,12 +510,17 @@ export async function restoreWaitingRoom(
     parsedInput.gameId,
     services,
   );
+  const archivedRoomQuiz = archivedRoom.quizId
+    ? await getOwnedQuiz(ownerId, archivedRoom.quizId, services)
+    : null;
+  const associatedQuiz =
+    archivedRoomQuiz?.status === "published" ? archivedRoomQuiz : null;
   const restoredAt = now();
   const privateRoom = {
     ownerId,
     name: archivedRoom.name,
-    ...(archivedRoom.quizId && archivedRoom.quizTitle
-      ? { quizId: archivedRoom.quizId, quizTitle: archivedRoom.quizTitle }
+    ...(associatedQuiz
+      ? { quizId: associatedQuiz.id, quizTitle: associatedQuiz.title }
       : {}),
     phase: "waiting",
     presentationStatus: "inactive",
@@ -482,8 +531,8 @@ export async function restoreWaitingRoom(
   const publicRoom = publicWaitingRoomSchema.parse({
     id: archivedRoom.id,
     name: archivedRoom.name,
-    ...(archivedRoom.quizId && archivedRoom.quizTitle
-      ? { quizId: archivedRoom.quizId, quizTitle: archivedRoom.quizTitle }
+    ...(associatedQuiz
+      ? { quizId: associatedQuiz.id, quizTitle: associatedQuiz.title }
       : {}),
     phase: "waiting",
     presentationStatus: "inactive",

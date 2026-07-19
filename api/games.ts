@@ -1,6 +1,7 @@
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 import {
+  associateWaitingRoomQuiz,
   archiveWaitingRoom,
   createWaitingRoom,
   deleteArchivedWaitingRoom,
@@ -14,6 +15,7 @@ import {
 } from "./_lib/waiting-room-service.js";
 import { removeWaitingRoomParticipantRequestSchema } from "../src/shared/participant.js";
 import {
+  associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
   createWaitingRoomRequestSchema,
   deleteArchivedWaitingRoomRequestSchema,
@@ -142,6 +144,19 @@ export async function PATCH(request: Request): Promise<Response> {
       services,
     );
     const payload = await readJsonBody(request);
+
+    const associateQuizResult =
+      associateWaitingRoomQuizRequestSchema.safeParse(payload);
+
+    if (associateQuizResult.success) {
+      const room = await associateWaitingRoomQuiz(
+        administrator.uid,
+        associateQuizResult.data,
+        services,
+      );
+
+      return jsonResponse({ room }, 200);
+    }
 
     const endRoomResult = endWaitingRoomRequestSchema.safeParse(payload);
 

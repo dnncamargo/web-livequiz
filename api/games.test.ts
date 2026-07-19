@@ -4,6 +4,7 @@ import { GET, PATCH, POST } from "./games.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
+  associateWaitingRoomQuiz: vi.fn(),
   archiveWaitingRoom: vi.fn(),
   authorizeAdministratorRequest: vi.fn(),
   createWaitingRoom: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 }));
 
 vi.mock("./_lib/waiting-room-service.js", () => ({
+  associateWaitingRoomQuiz: apiMocks.associateWaitingRoomQuiz,
   archiveWaitingRoom: apiMocks.archiveWaitingRoom,
   createWaitingRoom: apiMocks.createWaitingRoom,
   deleteArchivedWaitingRoom: apiMocks.deleteArchivedWaitingRoom,
@@ -52,6 +54,11 @@ describe("/api/games", () => {
       .mockReset()
       .mockResolvedValue({ uid: "administrador-1" });
     apiMocks.createWaitingRoom.mockReset().mockResolvedValue(room);
+    apiMocks.associateWaitingRoomQuiz.mockReset().mockResolvedValue({
+      ...room,
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+    });
     apiMocks.endWaitingRoom.mockReset().mockResolvedValue({
       ...room,
       phase: "finished",
@@ -194,6 +201,30 @@ describe("/api/games", () => {
         gameId: "ABC234",
         participantId: "participante-1",
         action: "remove",
+      },
+      apiMocks.services,
+    );
+  });
+
+  it("troca o quiz associado à sala administrada", async () => {
+    const response = await PATCH(
+      new Request("https://quizumba.example/api/games", {
+        method: "PATCH",
+        body: JSON.stringify({
+          gameId: "ABC234",
+          action: "associate-quiz",
+          quizId: "quiz-1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(apiMocks.associateWaitingRoomQuiz).toHaveBeenCalledWith(
+      "administrador-1",
+      {
+        gameId: "ABC234",
+        action: "associate-quiz",
+        quizId: "quiz-1",
       },
       apiMocks.services,
     );

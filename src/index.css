@@ -752,7 +752,60 @@ a:hover {
 
 .room-lifecycle-card {
   grid-column: 1;
-  padding: clamp(28px, 4vw, 44px);
+  padding: 18px;
+}
+
+.room-lifecycle-card .room-danger-zone {
+  display: grid;
+  grid-template-columns: auto minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+}
+
+.room-actions-heading {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.room-quiz-association {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 7px 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+.room-quiz-association label {
+  grid-column: 1 / -1;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.room-quiz-association select {
+  min-width: 0;
+  min-height: 40px;
+}
+
+.room-lifecycle-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.room-action-message,
+.room-lifecycle-card .room-closure-confirmation {
+  grid-column: 1 / -1;
+}
+
+.room-action-message {
+  color: #ffb2c5;
+  font-size: 0.88rem;
 }
 
 .waiting-participants {
@@ -1096,6 +1149,10 @@ a:hover {
     grid-column: auto;
     grid-row: auto;
   }
+
+  .room-lifecycle-card .room-danger-zone {
+    grid-template-columns: auto minmax(280px, 1fr) auto;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1134,6 +1191,26 @@ a:hover {
   .room-control-main,
   .waiting-participants {
     padding: 20px;
+  }
+
+  .room-lifecycle-card {
+    padding: 12px;
+  }
+
+  .room-lifecycle-card .room-danger-zone,
+  .room-quiz-association {
+    grid-template-columns: 1fr;
+  }
+
+  .room-quiz-association label,
+  .room-action-message,
+  .room-lifecycle-card .room-closure-confirmation {
+    grid-column: auto;
+  }
+
+  .room-lifecycle-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .room-code {

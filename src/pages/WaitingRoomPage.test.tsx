@@ -14,6 +14,8 @@ type Room = {
   presentationStatus?: "inactive" | "active";
   createdAt: number;
   participantCount: number;
+  quizId?: string;
+  quizTitle?: string;
 };
 
 const roomHookMock = vi.hoisted(() => ({
@@ -50,9 +52,27 @@ const managedRoomHookMock = vi.hoisted(() => ({
   gameId: "",
   refreshRevision: "" as string | number,
   archiveWaitingRoom: vi.fn(),
+  associateWaitingRoomQuiz: vi.fn(),
   endWaitingRoom: vi.fn(),
   presentWaitingRoom: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
+}));
+
+const quizLibraryMock = vi.hoisted(() => ({
+  quizzes: [
+    {
+      id: "quiz-1",
+      ownerId: "administrador-1",
+      title: "Ciências publicadas",
+      description: "",
+      status: "published" as const,
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 1_000,
+    },
+  ],
+  loading: false,
+  error: null as string | null,
 }));
 
 vi.mock("../contexts/auth-context", () => ({
@@ -81,10 +101,15 @@ vi.mock("../features/live-game/use-managed-waiting-room", () => ({
 vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
   archiveWaitingRoom: managedRoomHookMock.archiveWaitingRoom,
+  associateWaitingRoomQuiz: managedRoomHookMock.associateWaitingRoomQuiz,
   endWaitingRoom: managedRoomHookMock.endWaitingRoom,
   presentWaitingRoom: managedRoomHookMock.presentWaitingRoom,
   removeWaitingRoomParticipant:
     managedRoomHookMock.removeWaitingRoomParticipant,
+}));
+
+vi.mock("../features/quizzes/use-quiz-library", () => ({
+  useQuizLibrary: () => quizLibraryMock,
 }));
 
 function buildRoom(overrides: Partial<Room> = {}): Room {
@@ -123,6 +148,12 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.gameId = "";
     managedRoomHookMock.refreshRevision = "";
     managedRoomHookMock.archiveWaitingRoom.mockReset().mockResolvedValue({});
+    managedRoomHookMock.associateWaitingRoomQuiz.mockReset().mockResolvedValue(
+      buildRoom({
+        quizId: "quiz-1",
+        quizTitle: "Ciências publicadas",
+      }),
+    );
     managedRoomHookMock.endWaitingRoom
       .mockReset()
       .mockResolvedValue(buildRoom({ phase: "finished" }));
@@ -272,5 +303,30 @@ describe("WaitingRoomPage", () => {
       { gameId: "ABC234", action: "archive-room" },
     );
     expect(await screen.findByText("Biblioteca de salas")).toBeInTheDocument();
+  });
+
+  it("permite trocar o quiz associado à sala", async () => {
+    const browserUser = userEvent.setup();
+    renderWaitingRoom();
+
+    await browserUser.selectOptions(
+      screen.getByLabelText("Quiz associado"),
+      "quiz-1",
+    );
+    await browserUser.click(
+      screen.getByRole("button", { name: "Salvar associação" }),
+    );
+
+    expect(managedRoomHookMock.associateWaitingRoomQuiz).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "administrador-1" }),
+      {
+        gameId: "ABC234",
+        action: "associate-quiz",
+        quizId: "quiz-1",
+      },
+    );
+    expect(
+      await screen.findByText("Quiz associado: Ciências publicadas"),
+    ).toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import {
 } from "../../shared/participant";
 import {
   apiErrorResponseSchema,
+  associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
   archivedWaitingRoomLibraryResponseSchema,
   archivedWaitingRoomMutationResponseSchema,
@@ -24,6 +25,7 @@ import {
   waitingRoomMutationResponseSchema,
   waitingRoomCodeSchema,
   type ArchiveWaitingRoomRequest,
+  type AssociateWaitingRoomQuizRequest,
   type ArchivedWaitingRoom,
   type CreateWaitingRoomRequest,
   type DeleteArchivedWaitingRoomRequest,
@@ -131,6 +133,28 @@ export async function createWaitingRoom(
     throw new WaitingRoomRequestError(
       "invalid-response",
       "O servidor retornou dados inválidos para a sala.",
+    );
+  }
+
+  return result.data.room;
+}
+
+export async function associateWaitingRoomQuiz(
+  user: AdministratorUser,
+  input: AssociateWaitingRoomQuizRequest,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = associateWaitingRoomQuizRequestSchema.parse(input);
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível associar o quiz à sala. Tente novamente.",
+  );
+  const result = waitingRoomMutationResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao associar o quiz.",
     );
   }
 

@@ -5,12 +5,14 @@ import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
 import {
+  associateWaitingRoomQuiz,
   archiveWaitingRoom,
   endWaitingRoom,
   presentWaitingRoom,
   removeWaitingRoomParticipant,
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
+import { useQuizLibrary } from "../features/quizzes/use-quiz-library";
 
 const MODERATION_LABELS = {
   "waiting-approval": "Pronto",
@@ -26,6 +28,7 @@ export function WaitingRoomPage() {
     string | null
   >(null);
   const [participantActionError, setParticipantActionError] = useState("");
+  const [roomActionError, setRoomActionError] = useState("");
   const [confirmingRoomClosure, setConfirmingRoomClosure] = useState(false);
   const [endingRoom, setEndingRoom] = useState(false);
   const [processingRoom, setProcessingRoom] = useState(false);
@@ -33,6 +36,12 @@ export function WaitingRoomPage() {
     "inactive" | "active" | null
   >(null);
   const [refreshRevision, setRefreshRevision] = useState(0);
+  const [quizSelection, setQuizSelection] = useState<string | null>(null);
+  const [quizAssociationOverride, setQuizAssociationOverride] = useState<{
+    quizId?: string;
+    quizTitle?: string;
+  } | null>(null);
+  const [associatingQuiz, setAssociatingQuiz] = useState(false);
   const publicRoomState = usePublicWaitingRoom(id);
   const managedRoomState = useManagedWaitingRoom(
     user,
@@ -40,6 +49,10 @@ export function WaitingRoomPage() {
     `${publicRoomState.room?.phase ?? "missing"}:${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
   );
   const room = publicRoomState.room ?? managedRoomState.waitingRoom?.room;
+  const quizLibrary = useQuizLibrary(user);
+  const publishedQuizzes = quizLibrary.quizzes.filter(
+    ({ status }) => status === "published",
+  );
   const participants = useMemo(
     () =>
       [...(managedRoomState.waitingRoom?.participants ?? [])].sort(
@@ -62,6 +75,13 @@ export function WaitingRoomPage() {
   const error = publicRoomState.error ?? managedRoomState.error;
   const presentationStatus =
     presentationStatusOverride ?? room?.presentationStatus ?? "inactive";
+  const associatedQuizId = quizAssociationOverride
+    ? (quizAssociationOverride.quizId ?? "")
+    : (room?.quizId ?? "");
+  const associatedQuizTitle = quizAssociationOverride
+    ? quizAssociationOverride.quizTitle
+    : room?.quizTitle;
+  const selectedQuizId = quizSelection ?? associatedQuizId;
 
   async function confirmParticipantRemoval(participantId: string) {
     if (!user) {
@@ -96,7 +116,7 @@ export function WaitingRoomPage() {
     }
 
     setEndingRoom(true);
-    setParticipantActionError("");
+    setRoomActionError("");
 
     try {
       await endWaitingRoom(user, { gameId: id, action: "end-room" });
@@ -105,7 +125,7 @@ export function WaitingRoomPage() {
       setRefreshRevision((revision) => revision + 1);
     } catch (error) {
       console.error("Erro ao encerrar apresentação:", error);
-      setParticipantActionError(
+      setRoomActionError(
         error instanceof WaitingRoomRequestError
           ? error.message
           : "Não foi possível encerrar a apresentação. Tente novamente.",
@@ -121,7 +141,7 @@ export function WaitingRoomPage() {
     }
 
     setProcessingRoom(true);
-    setParticipantActionError("");
+    setRoomActionError("");
 
     try {
       await presentWaitingRoom(user, { gameId: id, action: "present-room" });
@@ -129,7 +149,7 @@ export function WaitingRoomPage() {
       navigate(`/?room=${id}`);
     } catch (error) {
       console.error("Erro ao apresentar sala:", error);
-      setParticipantActionError(
+      setRoomActionError(
         error instanceof WaitingRoomRequestError
           ? error.message
           : "Não foi possível iniciar a apresentação.",
@@ -144,19 +164,53 @@ export function WaitingRoomPage() {
     }
 
     setProcessingRoom(true);
-    setParticipantActionError("");
+    setRoomActionError("");
 
     try {
       await archiveWaitingRoom(user, { gameId: id, action: "archive-room" });
       navigate("/admin");
     } catch (error) {
       console.error("Erro ao arquivar sala:", error);
-      setParticipantActionError(
+      setRoomActionError(
         error instanceof WaitingRoomRequestError
           ? error.message
           : "Não foi possível arquivar a sala.",
       );
       setProcessingRoom(false);
+    }
+  }
+
+  async function handleQuizAssociation() {
+    if (!user) {
+      return;
+    }
+
+    setAssociatingQuiz(true);
+    setRoomActionError("");
+
+    try {
+      const updatedRoom = await associateWaitingRoomQuiz(user, {
+        gameId: id,
+        action: "associate-quiz",
+        quizId: selectedQuizId || null,
+      });
+      const nextQuizId = updatedRoom.quizId ?? "";
+
+      setQuizAssociationOverride({
+        ...(updatedRoom.quizId ? { quizId: updatedRoom.quizId } : {}),
+        ...(updatedRoom.quizTitle ? { quizTitle: updatedRoom.quizTitle } : {}),
+      });
+      setQuizSelection(nextQuizId);
+      setRefreshRevision((revision) => revision + 1);
+    } catch (error) {
+      console.error("Erro ao associar quiz à sala:", error);
+      setRoomActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível associar o quiz à sala.",
+      );
+    } finally {
+      setAssociatingQuiz(false);
     }
   }
 
@@ -194,7 +248,7 @@ export function WaitingRoomPage() {
         <section className="card waiting-room-card room-control-main">
           <span className="eyebrow">Gerenciamento da sala</span>
           <h1>{room.name ?? `Sala ${room.id}`}</h1>
-          {room.quizTitle && <p>Quiz associado: {room.quizTitle}</p>}
+          {associatedQuizTitle && <p>Quiz associado: {associatedQuizTitle}</p>}
 
           <div className="room-code-panel">
             <span>Código da sala</span>
@@ -303,40 +357,92 @@ export function WaitingRoomPage() {
         </section>
 
         <section className="card room-lifecycle-card">
-          <p>
-            Apresentar permite novas entradas. Encerrar finaliza somente a
-            apresentação; a sala continua disponível para uso futuro.
-          </p>
-
           <section
             className="room-danger-zone"
-            aria-labelledby="close-room-title"
+            aria-labelledby="room-actions-title"
           >
-            <div>
-              <strong id="close-room-title">Ciclo da sala</strong>
-              <span>
-                Apresente, encerre a apresentação ou arquive esta sala.
-              </span>
+            <div className="room-actions-heading">
+              <strong id="room-actions-title">Ações da sala</strong>
             </div>
 
-            <button
-              type="button"
-              className="primary-button compact-button"
-              disabled={processingRoom}
-              onClick={() => void handlePresentRoom()}
-            >
-              {processingRoom ? "Processando..." : "Apresentar"}
-            </button>
-
-            {presentationStatus === "active" && !confirmingRoomClosure && (
+            <div className="room-quiz-association">
+              <label htmlFor="room-quiz">Quiz associado</label>
+              <select
+                id="room-quiz"
+                value={selectedQuizId}
+                disabled={quizLibrary.loading || associatingQuiz}
+                onChange={(event) => setQuizSelection(event.target.value)}
+              >
+                <option value="">Sem quiz associado</option>
+                {associatedQuizId &&
+                  !publishedQuizzes.some(
+                    ({ id: quizId }) => quizId === associatedQuizId,
+                  ) && (
+                    <option value={associatedQuizId} disabled>
+                      {associatedQuizTitle ?? "Quiz indisponível"}
+                    </option>
+                  )}
+                {publishedQuizzes.map((quiz) => (
+                  <option key={quiz.id} value={quiz.id}>
+                    {quiz.title}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
-                className="danger-button"
-                onClick={() => setConfirmingRoomClosure(true)}
+                className="secondary-button compact-button"
+                disabled={
+                  quizLibrary.loading ||
+                  associatingQuiz ||
+                  selectedQuizId === associatedQuizId
+                }
+                onClick={() => void handleQuizAssociation()}
               >
-                Encerrar
+                {associatingQuiz ? "Salvando..." : "Salvar associação"}
               </button>
+            </div>
+
+            {quizLibrary.error && (
+              <span className="room-action-message" role="alert">
+                {quizLibrary.error}
+              </span>
             )}
+
+            {roomActionError && (
+              <span className="room-action-message" role="alert">
+                {roomActionError}
+              </span>
+            )}
+
+            <div className="room-lifecycle-actions">
+              <button
+                type="button"
+                className="primary-button compact-button"
+                disabled={processingRoom}
+                onClick={() => void handlePresentRoom()}
+              >
+                {processingRoom ? "Processando..." : "Apresentar"}
+              </button>
+
+              {presentationStatus === "active" && !confirmingRoomClosure && (
+                <button
+                  type="button"
+                  className="danger-button compact-button"
+                  onClick={() => setConfirmingRoomClosure(true)}
+                >
+                  Encerrar
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="secondary-button compact-button"
+                disabled={processingRoom}
+                onClick={() => void handleArchiveRoom()}
+              >
+                Arquivar
+              </button>
+            </div>
 
             {confirmingRoomClosure && (
               <div className="room-closure-confirmation">
@@ -364,15 +470,6 @@ export function WaitingRoomPage() {
                 </div>
               </div>
             )}
-
-            <button
-              type="button"
-              className="secondary-button compact-button"
-              disabled={processingRoom}
-              onClick={() => void handleArchiveRoom()}
-            >
-              Arquivar
-            </button>
           </section>
         </section>
       </div>

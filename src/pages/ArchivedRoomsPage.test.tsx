@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ArchivedRoomsPage } from "./ArchivedRoomsPage";
 
 const archivedMocks = vi.hoisted(() => ({
+  changeQuizDraftStatus: vi.fn(),
   deleteArchivedWaitingRoom: vi.fn(),
   restoreWaitingRoom: vi.fn(),
   user: { uid: "administrador-1" },
@@ -21,6 +22,20 @@ const archivedMocks = vi.hoisted(() => ({
         participantCount: 3,
       },
     ],
+    loading: false,
+    error: null as string | null,
+  },
+  quizLibrary: {
+    quizzes: [] as Array<{
+      id: string;
+      ownerId: string;
+      title: string;
+      description: string;
+      status: "archived";
+      questionCount: number;
+      createdAt: number;
+      updatedAt: number;
+    }>,
     loading: false,
     error: null as string | null,
   },
@@ -40,6 +55,15 @@ vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
 }));
 
+vi.mock("../features/quizzes/use-quiz-library", () => ({
+  useQuizLibrary: () => archivedMocks.quizLibrary,
+}));
+
+vi.mock("../features/quizzes/quiz-library", () => ({
+  changeQuizDraftStatus: archivedMocks.changeQuizDraftStatus,
+  QuizLibraryRequestError: class QuizLibraryRequestError extends Error {},
+}));
+
 function renderArchivedRooms() {
   return render(
     <MemoryRouter initialEntries={["/admin/archive"]}>
@@ -54,6 +78,7 @@ function renderArchivedRooms() {
 describe("ArchivedRoomsPage", () => {
   beforeEach(() => {
     archivedMocks.restoreWaitingRoom.mockReset().mockResolvedValue({});
+    archivedMocks.changeQuizDraftStatus.mockReset().mockResolvedValue({});
     archivedMocks.deleteArchivedWaitingRoom
       .mockReset()
       .mockResolvedValue("ABC234");
@@ -68,6 +93,9 @@ describe("ArchivedRoomsPage", () => {
     ];
     archivedMocks.library.loading = false;
     archivedMocks.library.error = null;
+    archivedMocks.quizLibrary.quizzes = [];
+    archivedMocks.quizLibrary.loading = false;
+    archivedMocks.quizLibrary.error = null;
   });
 
   afterEach(cleanup);
@@ -112,5 +140,37 @@ describe("ArchivedRoomsPage", () => {
       { gameId: "ABC234", action: "delete-room" },
     );
     expect(screen.queryByText("Quiz de Ciências")).not.toBeInTheDocument();
+  });
+
+  it("lista e restaura quizzes arquivados", async () => {
+    const browserUser = userEvent.setup();
+    archivedMocks.quizLibrary.quizzes = [
+      {
+        id: "quiz-1",
+        ownerId: "administrador-1",
+        title: "Ciências — 8º ano",
+        description: "",
+        status: "archived",
+        questionCount: 4,
+        createdAt: 1_000,
+        updatedAt: 2_000,
+      },
+    ];
+    renderArchivedRooms();
+
+    expect(screen.getByText("Ciências — 8º ano")).toBeInTheDocument();
+    const restoreButtons = screen.getAllByRole("button", {
+      name: "Restaurar",
+    });
+    await browserUser.click(restoreButtons[1] as HTMLButtonElement);
+    await browserUser.click(
+      screen.getByRole("button", { name: "Confirmar restauração?" }),
+    );
+
+    expect(archivedMocks.changeQuizDraftStatus).toHaveBeenCalledWith(
+      archivedMocks.user,
+      { quizId: "quiz-1", action: "restore-quiz" },
+    );
+    expect(screen.queryByText("Ciências — 8º ano")).not.toBeInTheDocument();
   });
 });

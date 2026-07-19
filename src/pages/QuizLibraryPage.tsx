@@ -1,7 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { TemporaryConfirmButton } from "../components/TemporaryConfirmButton";
 import { useAuth } from "../contexts/auth-context";
 import {
   createQuizDraft,
@@ -29,6 +28,9 @@ export function QuizLibraryPage() {
   const library = useQuizLibrary(user, refreshRevision);
   const [actionError, setActionError] = useState("");
   const [processingQuizId, setProcessingQuizId] = useState<string | null>(null);
+  const activeQuizzes = library.quizzes.filter(
+    ({ status }) => status !== "archived",
+  );
   const {
     register,
     handleSubmit,
@@ -141,7 +143,7 @@ export function QuizLibraryPage() {
               <span className="eyebrow">Biblioteca</span>
               <h2 id="quiz-library-title">Seus quizzes</h2>
             </div>
-            <span>{library.quizzes.length} quiz(zes)</span>
+            <span>{activeQuizzes.length} quiz(zes)</span>
           </div>
 
           {library.loading && <p role="status">Carregando quizzes...</p>}
@@ -151,17 +153,15 @@ export function QuizLibraryPage() {
               <p>{library.error}</p>
             </div>
           )}
-          {!library.loading &&
-            !library.error &&
-            library.quizzes.length === 0 && (
-              <div className="empty-library">
-                <strong>Nenhum quiz criado</strong>
-                <p>Crie o primeiro rascunho usando o formulário acima.</p>
-              </div>
-            )}
-          {library.quizzes.length > 0 && (
+          {!library.loading && !library.error && activeQuizzes.length === 0 && (
+            <div className="empty-library">
+              <strong>Nenhum quiz criado</strong>
+              <p>Crie o primeiro rascunho usando o formulário acima.</p>
+            </div>
+          )}
+          {activeQuizzes.length > 0 && (
             <ul className="room-library-list quiz-library-list">
-              {library.quizzes.map((quiz) => (
+              {activeQuizzes.map((quiz) => (
                 <li key={quiz.id}>
                   <div className="room-library-summary">
                     <span className="room-status">
@@ -187,35 +187,19 @@ export function QuizLibraryPage() {
                         Publicar
                       </button>
                     )}
-                    {quiz.status !== "archived" && (
-                      <button
-                        type="button"
-                        className="secondary-button compact-button"
-                        disabled={processingQuizId === quiz.id}
-                        onClick={() =>
-                          void handleStatusChange({
-                            quizId: quiz.id,
-                            action: "archive-quiz",
-                          })
-                        }
-                      >
-                        Arquivar
-                      </button>
-                    )}
-                    {quiz.status === "archived" && (
-                      <TemporaryConfirmButton
-                        className="secondary-button compact-button"
-                        idleLabel="Restaurar"
-                        confirmLabel="Confirmar restauração?"
-                        disabled={processingQuizId === quiz.id}
-                        onConfirm={() =>
-                          handleStatusChange({
-                            quizId: quiz.id,
-                            action: "restore-quiz",
-                          })
-                        }
-                      />
-                    )}
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={processingQuizId === quiz.id}
+                      onClick={() =>
+                        void handleStatusChange({
+                          quizId: quiz.id,
+                          action: "archive-quiz",
+                        })
+                      }
+                    >
+                      Arquivar
+                    </button>
                   </div>
                 </li>
               ))}

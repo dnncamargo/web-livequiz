@@ -37,6 +37,10 @@ export interface FirebaseAdminServices {
     status: "draft" | "published" | "archived",
     updatedAt: number,
   ) => Promise<unknown | null>;
+  detachQuizFromWaitingRooms: (
+    ownerId: string,
+    quizId: string,
+  ) => Promise<void>;
   claimWaitingRoom: (
     gameId: string,
     privateRoom: Record<string, unknown>,
@@ -56,6 +60,11 @@ export interface FirebaseAdminServices {
   setWaitingRoomPresentationStatus: (
     gameId: string,
     presentationStatus: "inactive" | "active",
+    changedAt: number,
+  ) => Promise<void>;
+  setWaitingRoomQuiz: (
+    gameId: string,
+    quiz: { id: string; title: string } | null,
     changedAt: number,
   ) => Promise<void>;
   saveArchivedWaitingRoom: (
@@ -301,6 +310,31 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
 
       return snapshot.exists ? snapshot.data() : null;
     },
+    detachQuizFromWaitingRooms: async (ownerId, quizId) => {
+      const snapshot = await database
+        .ref("liveGames")
+        .orderByChild("ownerId")
+        .equalTo(ownerId)
+        .get();
+      const rooms: unknown = snapshot.val();
+
+      if (!isRecord(rooms)) return;
+
+      const updates: Record<string, null> = {};
+
+      for (const [gameId, room] of Object.entries(rooms)) {
+        if (isRecord(room) && room.quizId === quizId) {
+          updates[`liveGames/${gameId}/quizId`] = null;
+          updates[`liveGames/${gameId}/quizTitle`] = null;
+          updates[`publicGames/${gameId}/quizId`] = null;
+          updates[`publicGames/${gameId}/quizTitle`] = null;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await database.ref().update(updates);
+      }
+    },
     claimWaitingRoom: async (gameId, privateRoom) => {
       const result = await database
         .ref(`liveGames/${gameId}`)
@@ -385,6 +419,17 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         [`liveGames/${gameId}/presentationEndedAt`]:
           presentationStatus === "inactive" ? changedAt : null,
         [`publicGames/${gameId}/presentationStatus`]: presentationStatus,
+      };
+
+      await database.ref().update(updates);
+    },
+    setWaitingRoomQuiz: async (gameId, quiz, changedAt) => {
+      const updates: Record<string, unknown> = {
+        [`liveGames/${gameId}/quizId`]: quiz?.id ?? null,
+        [`liveGames/${gameId}/quizTitle`]: quiz?.title ?? null,
+        [`liveGames/${gameId}/updatedAt`]: changedAt,
+        [`publicGames/${gameId}/quizId`]: quiz?.id ?? null,
+        [`publicGames/${gameId}/quizTitle`]: quiz?.title ?? null,
       };
 
       await database.ref().update(updates);

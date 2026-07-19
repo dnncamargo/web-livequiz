@@ -104,5 +104,9 @@ export async function changeQuizStatus(
 
   const updated = await services.updateQuizStatus(quiz.id, nextStatus, now());
 
+  if (parsedInput.action === "archive-quiz") {
+    await services.detachQuizFromWaitingRooms(ownerId, quiz.id);
+  }
+
   return parseQuiz(quiz.id, updated);
 }

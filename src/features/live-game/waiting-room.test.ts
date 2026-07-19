@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  associateWaitingRoomQuiz,
   createWaitingRoom,
   endWaitingRoom,
   getManagedWaitingRoom,
@@ -250,6 +251,49 @@ describe("cliente da sala de espera", () => {
       },
       body: JSON.stringify({ gameId: "ABC234", action: "end-room" }),
     });
+  });
+
+  it("solicita a troca do quiz associado", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          room: {
+            id: "ABC234",
+            phase: "waiting",
+            presentationStatus: "inactive",
+            createdAt: 1_000,
+            participantCount: 0,
+            quizId: "quiz-1",
+            quizTitle: "Ciências",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      associateWaitingRoomQuiz(
+        { getIdToken },
+        {
+          gameId: "ABC234",
+          action: "associate-quiz",
+          quizId: "quiz-1",
+        },
+      ),
+    ).resolves.toMatchObject({ quizId: "quiz-1" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/games",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          gameId: "ABC234",
+          action: "associate-quiz",
+          quizId: "quiz-1",
+        }),
+      }),
+    );
   });
 
   it("explica quando o Vite devolve a aplicação no lugar da API", async () => {

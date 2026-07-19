@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import {
   archiveWaitingRoom,
+  associateWaitingRoomQuiz,
   createWaitingRoom,
   deleteArchivedWaitingRoom,
   endWaitingRoom,
@@ -23,6 +24,7 @@ function createServices(): FirebaseAdminServices {
     findQuizzes: vi.fn(),
     getQuiz: vi.fn(),
     updateQuizStatus: vi.fn(),
+    detachQuizFromWaitingRooms: vi.fn(),
     claimWaitingRoom: vi.fn().mockResolvedValue(true),
     publishWaitingRoom: vi.fn().mockResolvedValue(undefined),
     removeWaitingRoom: vi.fn().mockResolvedValue(undefined),
@@ -30,6 +32,7 @@ function createServices(): FirebaseAdminServices {
     findActiveWaitingRoom: vi.fn(),
     findWaitingRooms: vi.fn(),
     setWaitingRoomPresentationStatus: vi.fn(),
+    setWaitingRoomQuiz: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),
@@ -103,6 +106,50 @@ describe("serviço de sala de espera", () => {
     expect(services.claimWaitingRoom).toHaveBeenCalledWith(
       "ABC234",
       expect.objectContaining({ quizId: "quiz-1", quizTitle: "Ciências" }),
+    );
+  });
+
+  it("troca o quiz de uma sala existente", async () => {
+    const services = createServices();
+    vi.mocked(services.getWaitingRoom).mockResolvedValue({
+      ownerId: "administrador-1",
+      name: "Turma 8A",
+      phase: "waiting",
+      presentationStatus: "inactive",
+      createdAt: 1_000,
+      quizId: "quiz-antigo",
+      quizTitle: "Quiz antigo",
+    });
+    vi.mocked(services.getQuiz).mockResolvedValue({
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "published",
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 2_000,
+    });
+
+    await expect(
+      associateWaitingRoomQuiz(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          action: "associate-quiz",
+          quizId: "quiz-1",
+        },
+        services,
+        () => 3_000,
+      ),
+    ).resolves.toMatchObject({
+      id: "ABC234",
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+    });
+    expect(services.setWaitingRoomQuiz).toHaveBeenCalledWith(
+      "ABC234",
+      { id: "quiz-1", title: "Ciências" },
+      3_000,
     );
   });
 
@@ -530,5 +577,41 @@ describe("serviço de sala de espera", () => {
       expect.not.objectContaining({ participants: expect.anything() }),
     );
     expect(services.deleteArchivedWaitingRoom).toHaveBeenCalledWith("ABC234");
+  });
+
+  it("não restaura a associação com um quiz arquivado", async () => {
+    const services = createServices();
+    vi.mocked(services.getArchivedWaitingRoom).mockResolvedValue({
+      ownerId: "administrador-1",
+      name: "Quiz de Ciências",
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+      status: "archived",
+      createdAt: 1_000,
+      archivedAt: 5_000,
+      participantCount: 0,
+    });
+    vi.mocked(services.getQuiz).mockResolvedValue({
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "archived",
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 5_000,
+    });
+
+    const restoredRoom = await restoreWaitingRoom(
+      "administrador-1",
+      { gameId: "ABC234", action: "restore-room" },
+      services,
+      () => 6_000,
+    );
+
+    expect(restoredRoom).not.toHaveProperty("quizId");
+    expect(services.claimWaitingRoom).toHaveBeenCalledWith(
+      "ABC234",
+      expect.not.objectContaining({ quizId: expect.anything() }),
+    );
   });
 });

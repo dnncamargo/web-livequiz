@@ -117,6 +117,14 @@ export const deleteArchivedWaitingRoomRequestSchema = z
   })
   .strict();
 
+export const associateWaitingRoomQuizRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("associate-quiz"),
+    quizId: quizIdSchema.nullable(),
+  })
+  .strict();
+
 export const waitingRoomMutationResponseSchema = z
   .object({ room: publicWaitingRoomSchema })
   .strict();
@@ -160,4 +168,7 @@ export type RestoreWaitingRoomRequest = z.infer<
 >;
 export type DeleteArchivedWaitingRoomRequest = z.infer<
   typeof deleteArchivedWaitingRoomRequestSchema
+>;
+export type AssociateWaitingRoomQuizRequest = z.infer<
+  typeof associateWaitingRoomQuizRequestSchema
 >;
