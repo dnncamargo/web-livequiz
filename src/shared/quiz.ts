@@ -3,6 +3,7 @@ import { z } from "zod";
 export const QUIZ_TITLE_MIN_LENGTH = 3;
 export const QUIZ_TITLE_MAX_LENGTH = 100;
 export const QUIZ_DESCRIPTION_MAX_LENGTH = 500;
+export const QUIZ_QUESTION_MAX_COUNT = 100;
 
 export const questionTypeSchema = z.enum(["single-choice", "true-false"]);
 export type QuestionType = z.infer<typeof questionTypeSchema>;
@@ -32,6 +33,14 @@ export const quizQuestionSchema = z
   })
   .superRefine((question, context) => {
     const optionIds = new Set(question.options.map(({ id }) => id));
+
+    if (optionIds.size !== question.options.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "Cada alternativa deve possuir um identificador único.",
+      });
+    }
 
     if (!optionIds.has(question.correctOptionIds[0] ?? "")) {
       context.addIssue({
@@ -83,7 +92,42 @@ export const quizSchema = z.object({
 });
 export type Quiz = z.infer<typeof quizSchema>;
 
+export const quizQuestionsSchema = z
+  .array(quizQuestionSchema)
+  .max(
+    QUIZ_QUESTION_MAX_COUNT,
+    `Use no máximo ${QUIZ_QUESTION_MAX_COUNT} perguntas por quiz.`,
+  )
+  .superRefine((questions, context) => {
+    const questionIds = new Set(questions.map(({ id }) => id));
+
+    if (questionIds.size !== questions.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Cada pergunta deve possuir um identificador único.",
+      });
+    }
+  });
+
+export const quizDetailSchema = quizSchema.extend({
+  questions: quizQuestionsSchema,
+});
+export type QuizDetail = z.infer<typeof quizDetailSchema>;
+
+export const updateQuizContentRequestSchema = z
+  .object({
+    quizId: quizIdSchema,
+    title: createQuizRequestSchema.shape.title,
+    description: createQuizRequestSchema.shape.description,
+    questions: quizQuestionsSchema,
+  })
+  .strict();
+export type UpdateQuizContentRequest = z.infer<
+  typeof updateQuizContentRequestSchema
+>;
+
 export const quizResponseSchema = z.object({ quiz: quizSchema });
+export const quizDetailResponseSchema = z.object({ quiz: quizDetailSchema });
 export const quizListResponseSchema = z.object({
   quizzes: z.array(quizSchema),
 });

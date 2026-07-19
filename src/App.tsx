@@ -14,6 +14,7 @@ import { HomePage } from "./pages/HomePage";
 import { ManagementPage } from "./pages/ManagementPage";
 import { PresentationPage } from "./pages/PresentationPage";
 import { QuizLibraryPage } from "./pages/QuizLibraryPage";
+import { QuizEditorPage } from "./pages/QuizEditorPage";
 import { WaitingRoomPage } from "./pages/WaitingRoomPage";
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
       >
         <Route index element={<ManagementPage />} />
         <Route path="quizzes" element={<QuizLibraryPage />} />
+        <Route path="quiz/:id" element={<QuizEditorPage />} />
         <Route path="room/:id" element={<WaitingRoomPage />} />
         <Route path="archive" element={<ArchivedRoomsPage />} />
         <Route path="firebase-test" element={<FirebaseTestPage />} />

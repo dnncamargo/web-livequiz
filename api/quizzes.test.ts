@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GET, PATCH, POST } from "./quizzes.js";
+import { GET, PATCH, POST, PUT } from "./quizzes.js";
 
 const apiMocks = vi.hoisted(() => ({
   services: { name: "firebase-admin-services" },
   authorizeAdministratorRequest: vi.fn(),
   createQuiz: vi.fn(),
   changeQuizStatus: vi.fn(),
+  getQuizDetail: vi.fn(),
   listQuizzes: vi.fn(),
+  updateQuizContent: vi.fn(),
 }));
 
 vi.mock("./_lib/firebase-admin.js", () => ({
@@ -20,7 +22,9 @@ vi.mock("./_lib/administrator-authorization.js", () => ({
 vi.mock("./_lib/quiz-service.js", () => ({
   changeQuizStatus: apiMocks.changeQuizStatus,
   createQuiz: apiMocks.createQuiz,
+  getQuizDetail: apiMocks.getQuizDetail,
   listQuizzes: apiMocks.listQuizzes,
+  updateQuizContent: apiMocks.updateQuizContent,
 }));
 
 const quiz = {
@@ -33,6 +37,7 @@ const quiz = {
   createdAt: 1_000,
   updatedAt: 1_000,
 } as const;
+const quizDetail = { ...quiz, questions: [] } as const;
 
 describe("/api/quizzes", () => {
   beforeEach(() => {
@@ -44,6 +49,8 @@ describe("/api/quizzes", () => {
       .mockReset()
       .mockResolvedValue({ ...quiz, status: "published" });
     apiMocks.listQuizzes.mockReset().mockResolvedValue([quiz]);
+    apiMocks.getQuizDetail.mockReset().mockResolvedValue(quizDetail);
+    apiMocks.updateQuizContent.mockReset().mockResolvedValue(quizDetail);
   });
 
   it("cria um quiz para o administrador autenticado", async () => {
@@ -73,6 +80,43 @@ describe("/api/quizzes", () => {
     await expect(response.json()).resolves.toEqual({ quizzes: [quiz] });
     expect(apiMocks.listQuizzes).toHaveBeenCalledWith(
       "administrador-1",
+      apiMocks.services,
+    );
+  });
+
+  it("consulta um quiz com suas perguntas", async () => {
+    const response = await GET(
+      new Request("https://quizumba.example/api/quizzes?quizId=quiz-1"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ quiz: quizDetail });
+    expect(apiMocks.getQuizDetail).toHaveBeenCalledWith(
+      "administrador-1",
+      "quiz-1",
+      apiMocks.services,
+    );
+    expect(apiMocks.listQuizzes).not.toHaveBeenCalled();
+  });
+
+  it("salva o conteúdo completo do quiz", async () => {
+    const input = {
+      quizId: "quiz-1",
+      title: "Ciências",
+      description: "Oitavo ano",
+      questions: [],
+    };
+    const response = await PUT(
+      new Request("https://quizumba.example/api/quizzes", {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(apiMocks.updateQuizContent).toHaveBeenCalledWith(
+      "administrador-1",
+      input,
       apiMocks.services,
     );
   });

@@ -2,11 +2,16 @@ import type { User } from "firebase/auth";
 import {
   createQuizRequestSchema,
   changeQuizStatusRequestSchema,
+  quizDetailResponseSchema,
+  quizIdSchema,
   quizListResponseSchema,
   quizResponseSchema,
+  updateQuizContentRequestSchema,
   type CreateQuizRequest,
   type ChangeQuizStatusRequest,
   type Quiz,
+  type QuizDetail,
+  type UpdateQuizContentRequest,
 } from "../../shared/quiz";
 import { apiErrorResponseSchema } from "../../shared/waiting-room";
 
@@ -25,6 +30,7 @@ const QUIZ_REQUEST_TIMEOUT_MS = 15_000;
 async function requestQuizzes(
   user: User,
   init?: RequestInit,
+  endpoint = "/api/quizzes",
 ): Promise<unknown> {
   const idToken = await user.getIdToken();
   const controller = new AbortController();
@@ -35,7 +41,7 @@ async function requestQuizzes(
   let response: Response;
 
   try {
-    response = await fetch("/api/quizzes", {
+    response = await fetch(endpoint, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -124,6 +130,51 @@ export async function changeQuizDraftStatus(
     throw new QuizLibraryRequestError(
       "invalid-quiz-response",
       "O servidor retornou um quiz inválido.",
+    );
+  }
+
+  return result.data.quiz;
+}
+
+export async function getQuizDetail(
+  user: User,
+  quizId: string,
+): Promise<QuizDetail> {
+  const parsedQuizId = quizIdSchema.parse(quizId);
+  const result = quizDetailResponseSchema.safeParse(
+    await requestQuizzes(
+      user,
+      { method: "GET" },
+      `/api/quizzes?quizId=${encodeURIComponent(parsedQuizId)}`,
+    ),
+  );
+
+  if (!result.success) {
+    throw new QuizLibraryRequestError(
+      "invalid-quiz-response",
+      "O servidor retornou um quiz inválido para edição.",
+    );
+  }
+
+  return result.data.quiz;
+}
+
+export async function saveQuizContent(
+  user: User,
+  input: UpdateQuizContentRequest,
+): Promise<QuizDetail> {
+  const parsedInput = updateQuizContentRequestSchema.parse(input);
+  const result = quizDetailResponseSchema.safeParse(
+    await requestQuizzes(user, {
+      method: "PUT",
+      body: JSON.stringify(parsedInput),
+    }),
+  );
+
+  if (!result.success) {
+    throw new QuizLibraryRequestError(
+      "invalid-quiz-response",
+      "O servidor retornou dados inválidos após salvar o quiz.",
     );
   }
 

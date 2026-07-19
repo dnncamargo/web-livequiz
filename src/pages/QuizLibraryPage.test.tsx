@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { QuizLibraryPage } from "./QuizLibraryPage";
 
 const pageMocks = vi.hoisted(() => ({
@@ -40,6 +41,14 @@ vi.mock("../features/quizzes/use-quiz-library", () => ({
   useQuizLibrary: () => pageMocks.library,
 }));
 
+function renderQuizLibrary() {
+  return render(
+    <MemoryRouter>
+      <QuizLibraryPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("QuizLibraryPage", () => {
   beforeEach(() => {
     pageMocks.library.quizzes = [];
@@ -53,7 +62,7 @@ describe("QuizLibraryPage", () => {
 
   it("cria um rascunho com título e descrição", async () => {
     const user = userEvent.setup();
-    render(<QuizLibraryPage />);
+    renderQuizLibrary();
 
     await user.type(screen.getByLabelText("Título do quiz"), "Ciências");
     await user.type(screen.getByLabelText("Descrição"), "Oitavo ano");
@@ -79,7 +88,7 @@ describe("QuizLibraryPage", () => {
       },
     ];
 
-    render(<QuizLibraryPage />);
+    renderQuizLibrary();
 
     expect(screen.getByText("Geografia")).toBeInTheDocument();
     expect(screen.getByText("Rascunho")).toBeInTheDocument();
@@ -95,12 +104,12 @@ describe("QuizLibraryPage", () => {
         title: "Geografia",
         description: "",
         status: "draft",
-        questionCount: 0,
+        questionCount: 1,
         createdAt: 1_000,
         updatedAt: 1_000,
       },
     ];
-    render(<QuizLibraryPage />);
+    renderQuizLibrary();
 
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
-import { changeQuizStatus, createQuiz, listQuizzes } from "./quiz-service.js";
+import {
+  changeQuizStatus,
+  createQuiz,
+  getQuizDetail,
+  listQuizzes,
+  updateQuizContent,
+} from "./quiz-service.js";
 
 function createServices(): Pick<
   FirebaseAdminServices,
@@ -8,14 +14,18 @@ function createServices(): Pick<
   | "findQuizzes"
   | "getQuiz"
   | "updateQuizStatus"
+  | "updateQuizContent"
   | "detachQuizFromWaitingRooms"
+  | "syncQuizTitleWithWaitingRooms"
 > {
   return {
     createQuiz: vi.fn(),
     findQuizzes: vi.fn(),
     getQuiz: vi.fn(),
     updateQuizStatus: vi.fn(),
+    updateQuizContent: vi.fn(),
     detachQuizFromWaitingRooms: vi.fn(),
+    syncQuizTitleWithWaitingRooms: vi.fn(),
   };
 }
 
@@ -82,8 +92,8 @@ describe("serviço de quizzes", () => {
       ownerId: "administrador-1",
       title: "Ciências",
       description: "",
-      status: "draft",
-      questionCount: 0,
+      status: "draft" as const,
+      questionCount: 1,
       createdAt: 1_000,
       updatedAt: 1_000,
     } as const;
@@ -102,6 +112,94 @@ describe("serviço de quizzes", () => {
         () => 2_000,
       ),
     ).resolves.toMatchObject({ id: "quiz-1", status: "published" });
+  });
+
+  it("impede a publicação de um quiz vazio", async () => {
+    vi.mocked(services.getQuiz).mockResolvedValue({
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "draft",
+      questionCount: 0,
+      createdAt: 1_000,
+      updatedAt: 1_000,
+    });
+
+    await expect(
+      changeQuizStatus(
+        "administrador-1",
+        { quizId: "quiz-1", action: "publish-quiz" },
+        services as FirebaseAdminServices,
+      ),
+    ).rejects.toMatchObject({ code: "quiz-has-no-questions", status: 409 });
+    expect(services.updateQuizStatus).not.toHaveBeenCalled();
+  });
+
+  it("carrega e salva perguntas normalizando suas posições", async () => {
+    const storedQuiz = {
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "Oitavo ano",
+      status: "draft",
+      questionCount: 1,
+      createdAt: 1_000,
+      updatedAt: 1_000,
+      questions: [
+        {
+          id: "question-1",
+          type: "single-choice" as const,
+          prompt: "Qual é o planeta vermelho?",
+          position: 7,
+          durationMs: 20_000,
+          points: 1_000,
+          options: [
+            { id: "option-1", label: "Marte" },
+            { id: "option-2", label: "Vênus" },
+          ],
+          correctOptionIds: ["option-1"],
+        },
+      ],
+    };
+    vi.mocked(services.getQuiz).mockResolvedValue(storedQuiz);
+    vi.mocked(services.updateQuizContent).mockResolvedValue({
+      ...storedQuiz,
+      title: "Ciências atualizadas",
+      questions: [{ ...storedQuiz.questions[0], position: 0 }],
+      updatedAt: 2_000,
+    });
+
+    await expect(
+      getQuizDetail(
+        "administrador-1",
+        "quiz-1",
+        services as FirebaseAdminServices,
+      ),
+    ).resolves.toMatchObject({ questions: [{ id: "question-1" }] });
+
+    await updateQuizContent(
+      "administrador-1",
+      {
+        quizId: "quiz-1",
+        title: "Ciências atualizadas",
+        description: storedQuiz.description,
+        questions: [...storedQuiz.questions],
+      },
+      services as FirebaseAdminServices,
+      () => 2_000,
+    );
+
+    expect(services.updateQuizContent).toHaveBeenCalledWith(
+      "quiz-1",
+      expect.objectContaining({
+        questions: [expect.objectContaining({ position: 0 })],
+      }),
+      2_000,
+    );
+    expect(services.syncQuizTitleWithWaitingRooms).toHaveBeenCalledWith(
+      "administrador-1",
+      "quiz-1",
+      "Ciências atualizadas",
+    );
   });
 
   it("desassocia o quiz das salas ativas quando ele é arquivado", async () => {

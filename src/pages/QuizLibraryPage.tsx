@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import {
   createQuizDraft,
@@ -172,11 +173,25 @@ export function QuizLibraryPage() {
                     <small>{quiz.questionCount} pergunta(s)</small>
                   </div>
                   <div className="room-library-actions">
+                    <Link
+                      className="secondary-button compact-button"
+                      to={`/admin/quiz/${quiz.id}`}
+                    >
+                      Editar
+                    </Link>
                     {quiz.status === "draft" && (
                       <button
                         type="button"
                         className="primary-button compact-button"
-                        disabled={processingQuizId === quiz.id}
+                        disabled={
+                          processingQuizId === quiz.id ||
+                          quiz.questionCount === 0
+                        }
+                        title={
+                          quiz.questionCount === 0
+                            ? "Adicione uma pergunta antes de publicar"
+                            : undefined
+                        }
                         onClick={() =>
                           void handleStatusChange({
                             quizId: quiz.id,

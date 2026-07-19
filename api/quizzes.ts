@@ -2,6 +2,8 @@ import { ZodError } from "zod";
 import {
   changeQuizStatusRequestSchema,
   createQuizRequestSchema,
+  quizIdSchema,
+  updateQuizContentRequestSchema,
 } from "../src/shared/quiz.js";
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
@@ -9,7 +11,9 @@ import { HttpError } from "./_lib/http-error.js";
 import {
   changeQuizStatus,
   createQuiz,
+  getQuizDetail,
   listQuizzes,
+  updateQuizContent,
 } from "./_lib/quiz-service.js";
 
 function jsonResponse(body: unknown, status: number) {
@@ -70,9 +74,39 @@ export async function GET(request: Request): Promise<Response> {
       request,
       services,
     );
+    const quizId = new URL(request.url).searchParams.get("quizId");
+
+    if (quizId) {
+      const quiz = await getQuizDetail(
+        administrator.uid,
+        quizIdSchema.parse(quizId),
+        services,
+      );
+
+      return jsonResponse({ quiz }, 200);
+    }
+
     const quizzes = await listQuizzes(administrator.uid, services);
 
     return jsonResponse({ quizzes }, 200);
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function PUT(request: Request): Promise<Response> {
+  try {
+    const services = getFirebaseAdminServices();
+    const administrator = await authorizeAdministratorRequest(
+      request,
+      services,
+    );
+    const input = updateQuizContentRequestSchema.parse(
+      await readJsonBody(request),
+    );
+    const quiz = await updateQuizContent(administrator.uid, input, services);
+
+    return jsonResponse({ quiz }, 200);
   } catch (error) {
     return errorResponse(error);
   }

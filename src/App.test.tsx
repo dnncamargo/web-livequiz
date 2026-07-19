@@ -47,6 +47,10 @@ vi.mock("./pages/QuizLibraryPage", () => ({
   QuizLibraryPage: () => <p>Biblioteca de quizzes</p>,
 }));
 
+vi.mock("./pages/QuizEditorPage", () => ({
+  QuizEditorPage: () => <p>Editor de quiz</p>,
+}));
+
 vi.mock("./pages/WaitingRoomPage", () => ({
   WaitingRoomPage: () => <p>Sala administrativa</p>,
 }));
@@ -120,6 +124,17 @@ describe("rotas administrativas", () => {
 
     expect(screen.getByText("Login administrativo")).toBeInTheDocument();
     expect(screen.queryByText("Biblioteca de quizzes")).not.toBeInTheDocument();
+  });
+
+  it("protege o editor de quiz", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/quiz/quiz-1"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Login administrativo")).toBeInTheDocument();
+    expect(screen.queryByText("Editor de quiz")).not.toBeInTheDocument();
   });
 
   it("abre a apresentação pública pela raiz com o código da sala", () => {

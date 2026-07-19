@@ -8,7 +8,7 @@ import {
   participantAvatarSchema,
 } from "../../src/shared/avatar.js";
 import type { PublicWaitingRoomParticipant } from "../../src/shared/waiting-room.js";
-import type { CreateQuizRequest } from "../../src/shared/quiz.js";
+import type { CreateQuizRequest, QuizQuestion } from "../../src/shared/quiz.js";
 
 const ADMIN_APP_NAME = "quizumba-server";
 
@@ -37,9 +37,23 @@ export interface FirebaseAdminServices {
     status: "draft" | "published" | "archived",
     updatedAt: number,
   ) => Promise<unknown | null>;
+  updateQuizContent: (
+    quizId: string,
+    content: {
+      title: string;
+      description: string;
+      questions: QuizQuestion[];
+    },
+    updatedAt: number,
+  ) => Promise<unknown | null>;
   detachQuizFromWaitingRooms: (
     ownerId: string,
     quizId: string,
+  ) => Promise<void>;
+  syncQuizTitleWithWaitingRooms: (
+    ownerId: string,
+    quizId: string,
+    title: string,
   ) => Promise<void>;
   claimWaitingRoom: (
     gameId: string,
@@ -310,6 +324,19 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
 
       return snapshot.exists ? snapshot.data() : null;
     },
+    updateQuizContent: async (quizId, content, updatedAt) => {
+      const quizReference = firestore.doc(`quizzes/${quizId}`);
+      await quizReference.update({
+        title: content.title,
+        description: content.description,
+        questions: content.questions,
+        questionCount: content.questions.length,
+        updatedAt,
+      });
+      const snapshot = await quizReference.get();
+
+      return snapshot.exists ? snapshot.data() : null;
+    },
     detachQuizFromWaitingRooms: async (ownerId, quizId) => {
       const snapshot = await database
         .ref("liveGames")
@@ -328,6 +355,29 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           updates[`liveGames/${gameId}/quizTitle`] = null;
           updates[`publicGames/${gameId}/quizId`] = null;
           updates[`publicGames/${gameId}/quizTitle`] = null;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await database.ref().update(updates);
+      }
+    },
+    syncQuizTitleWithWaitingRooms: async (ownerId, quizId, title) => {
+      const snapshot = await database
+        .ref("liveGames")
+        .orderByChild("ownerId")
+        .equalTo(ownerId)
+        .get();
+      const rooms: unknown = snapshot.val();
+
+      if (!isRecord(rooms)) return;
+
+      const updates: Record<string, string> = {};
+
+      for (const [gameId, room] of Object.entries(rooms)) {
+        if (isRecord(room) && room.quizId === quizId) {
+          updates[`liveGames/${gameId}/quizTitle`] = title;
+          updates[`publicGames/${gameId}/quizTitle`] = title;
         }
       }
 
