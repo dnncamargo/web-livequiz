@@ -32,6 +32,7 @@ function createServices(): FirebaseAdminServices {
     findWaitingRooms: vi.fn(),
     setWaitingRoomPresentationStatus: vi.fn(),
     setWaitingRoomQuiz: vi.fn(),
+    setWaitingRoomGameState: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),

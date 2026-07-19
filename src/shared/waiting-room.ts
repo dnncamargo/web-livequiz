@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { participantAvatarSchema } from "./avatar.js";
-import { quizIdSchema } from "./quiz.js";
+import { LIVE_GAME_PHASES } from "./game-types.js";
+import { questionTypeSchema, quizIdSchema, quizOptionSchema } from "./quiz.js";
 
 export const WAITING_ROOM_CODE_LENGTH = 6;
 export const WAITING_ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -30,8 +31,27 @@ export const waitingRoomNameSchema = z
   .transform((name) => name.trim().replace(/\s+/g, " "))
   .pipe(normalizedWaitingRoomNameSchema);
 
-export const waitingRoomPhaseSchema = z.enum(["waiting", "finished"]);
+export const waitingRoomPhaseSchema = z.enum(LIVE_GAME_PHASES);
 export const presentationStatusSchema = z.enum(["inactive", "active"]);
+
+export const publicQuizQuestionSchema = z
+  .object({
+    id: z.string().min(1).max(128),
+    type: questionTypeSchema,
+    prompt: z.string().trim().min(1).max(500),
+    position: z.number().int().nonnegative(),
+    durationMs: z.number().int().min(5_000).max(120_000),
+    points: z.number().int().min(0).max(10_000),
+    options: z.array(quizOptionSchema).min(2).max(6),
+  })
+  .strict();
+
+export const phaseTimingSchema = z
+  .object({
+    startedAt: z.number().int().nonnegative(),
+    durationMs: z.number().int().positive(),
+  })
+  .strict();
 
 export const publicWaitingRoomParticipantSchema = z
   .object({
@@ -51,8 +71,44 @@ export const publicWaitingRoomSchema = z
     createdAt: z.number().int().nonnegative(),
     participantCount: z.number().int().nonnegative(),
     participants: z.array(publicWaitingRoomParticipantSchema).optional(),
+    currentQuestion: publicQuizQuestionSchema.optional(),
+    revealedCorrectOptionIds: z
+      .array(z.string().min(1).max(128))
+      .length(1)
+      .optional(),
+    questionNumber: z.number().int().positive().optional(),
+    totalQuestions: z.number().int().positive().optional(),
+    phaseTiming: phaseTimingSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((room, context) => {
+    const displaysQuestion =
+      room.phase === "question" || room.phase === "revealing";
+
+    if (displaysQuestion && !room.currentQuestion) {
+      context.addIssue({
+        code: "custom",
+        path: ["currentQuestion"],
+        message: "A fase atual exige uma pergunta pública.",
+      });
+    }
+
+    if (room.revealedCorrectOptionIds && room.phase !== "revealing") {
+      context.addIssue({
+        code: "custom",
+        path: ["revealedCorrectOptionIds"],
+        message: "O gabarito só pode ser publicado durante a revelação.",
+      });
+    }
+
+    if (room.phase === "revealing" && !room.revealedCorrectOptionIds) {
+      context.addIssue({
+        code: "custom",
+        path: ["revealedCorrectOptionIds"],
+        message: "A fase de revelação exige o gabarito público.",
+      });
+    }
+  });
 
 export const createWaitingRoomRequestSchema = z
   .object({ name: waitingRoomNameSchema, quizId: quizIdSchema.optional() })
@@ -125,6 +181,13 @@ export const associateWaitingRoomQuizRequestSchema = z
   })
   .strict();
 
+export const advanceWaitingRoomGameRequestSchema = z
+  .object({
+    gameId: waitingRoomCodeSchema,
+    action: z.literal("advance-game"),
+  })
+  .strict();
+
 export const waitingRoomMutationResponseSchema = z
   .object({ room: publicWaitingRoomSchema })
   .strict();
@@ -172,3 +235,8 @@ export type DeleteArchivedWaitingRoomRequest = z.infer<
 export type AssociateWaitingRoomQuizRequest = z.infer<
   typeof associateWaitingRoomQuizRequestSchema
 >;
+export type AdvanceWaitingRoomGameRequest = z.infer<
+  typeof advanceWaitingRoomGameRequestSchema
+>;
+export type PublicQuizQuestion = z.infer<typeof publicQuizQuestionSchema>;
+export type PhaseTiming = z.infer<typeof phaseTimingSchema>;

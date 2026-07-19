@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import {
+  advanceWaitingRoomGame,
   archiveWaitingRoom,
   associateWaitingRoomQuiz,
   createWaitingRoom,
@@ -35,6 +36,7 @@ function createServices(): FirebaseAdminServices {
     findWaitingRooms: vi.fn(),
     setWaitingRoomPresentationStatus: vi.fn(),
     setWaitingRoomQuiz: vi.fn(),
+    setWaitingRoomGameState: vi.fn(),
     saveArchivedWaitingRoom: vi.fn(),
     getArchivedWaitingRooms: vi.fn(),
     getArchivedWaitingRoom: vi.fn(),
@@ -153,6 +155,123 @@ describe("serviço de sala de espera", () => {
       { id: "quiz-1", title: "Ciências" },
       3_000,
     );
+  });
+
+  it("avança o quiz sem publicar o gabarito antes da revelação", async () => {
+    const services = createServices();
+    const storedRoom: Record<string, unknown> = {
+      ownerId: "administrador-1",
+      name: "Turma 8A",
+      phase: "waiting",
+      presentationStatus: "inactive",
+      createdAt: 1_000,
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+    };
+    const question = {
+      id: "pergunta-1",
+      type: "single-choice" as const,
+      prompt: "Qual planeta é conhecido como planeta vermelho?",
+      position: 0,
+      durationMs: 20_000,
+      points: 1_000,
+      options: [
+        { id: "opcao-a", label: "Marte" },
+        { id: "opcao-b", label: "Vênus" },
+      ],
+      correctOptionIds: ["opcao-a"],
+    };
+    vi.mocked(services.getWaitingRoom).mockImplementation(() =>
+      Promise.resolve(storedRoom),
+    );
+    vi.mocked(services.getQuiz).mockResolvedValue({
+      ownerId: "administrador-1",
+      title: "Ciências",
+      description: "",
+      status: "published",
+      questionCount: 1,
+      createdAt: 1_000,
+      updatedAt: 2_000,
+      questions: [question],
+    });
+    vi.mocked(services.setWaitingRoomGameState).mockImplementation(
+      (_gameId, privateFields) => {
+        for (const [field, value] of Object.entries(privateFields)) {
+          if (value === null) {
+            delete storedRoom[field];
+          } else {
+            storedRoom[field] = value;
+          }
+        }
+
+        return Promise.resolve();
+      },
+    );
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        { gameId: "ABC234", action: "advance-game" },
+        services,
+        () => 3_000,
+      ),
+    ).resolves.toMatchObject({
+      phase: "countdown",
+      presentationStatus: "active",
+      questionNumber: 1,
+      totalQuestions: 1,
+    });
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        { gameId: "ABC234", action: "advance-game" },
+        services,
+        () => 6_000,
+      ),
+    ).resolves.toMatchObject({
+      phase: "question",
+      currentQuestion: expect.objectContaining({
+        id: "pergunta-1",
+        prompt: question.prompt,
+      }),
+    });
+
+    const publicQuestionState = vi.mocked(services.setWaitingRoomGameState).mock
+      .calls[1]?.[2];
+    expect(publicQuestionState).toMatchObject({
+      phase: "question",
+      currentQuestion: expect.not.objectContaining({
+        correctOptionIds: expect.anything(),
+      }),
+    });
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        { gameId: "ABC234", action: "advance-game" },
+        services,
+        () => 9_000,
+      ),
+    ).resolves.toMatchObject({
+      phase: "revealing",
+      revealedCorrectOptionIds: ["opcao-a"],
+    });
+    expect(
+      vi.mocked(services.setWaitingRoomGameState).mock.calls[2]?.[2],
+    ).toMatchObject({
+      phase: "revealing",
+      revealedCorrectOptionIds: ["opcao-a"],
+    });
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        { gameId: "ABC234", action: "advance-game" },
+        services,
+        () => 12_000,
+      ),
+    ).resolves.toMatchObject({ phase: "finished" });
   });
 
   it("gera outro código quando encontra uma colisão", async () => {

@@ -6,16 +6,19 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WaitingRoomPage } from "./WaitingRoomPage";
+import type { LiveGamePhase } from "../shared/game-types";
 
 type Room = {
   id: string;
   name?: string;
-  phase: "waiting" | "finished";
+  phase: LiveGamePhase;
   presentationStatus?: "inactive" | "active";
   createdAt: number;
   participantCount: number;
   quizId?: string;
   quizTitle?: string;
+  questionNumber?: number;
+  totalQuestions?: number;
 };
 
 const roomHookMock = vi.hoisted(() => ({
@@ -51,6 +54,7 @@ const managedRoomHookMock = vi.hoisted(() => ({
   },
   gameId: "",
   refreshRevision: "" as string | number,
+  advanceWaitingRoomGame: vi.fn(),
   archiveWaitingRoom: vi.fn(),
   associateWaitingRoomQuiz: vi.fn(),
   endWaitingRoom: vi.fn(),
@@ -100,6 +104,7 @@ vi.mock("../features/live-game/use-managed-waiting-room", () => ({
 
 vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
+  advanceWaitingRoomGame: managedRoomHookMock.advanceWaitingRoomGame,
   archiveWaitingRoom: managedRoomHookMock.archiveWaitingRoom,
   associateWaitingRoomQuiz: managedRoomHookMock.associateWaitingRoomQuiz,
   endWaitingRoom: managedRoomHookMock.endWaitingRoom,
@@ -148,6 +153,16 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.gameId = "";
     managedRoomHookMock.refreshRevision = "";
     managedRoomHookMock.archiveWaitingRoom.mockReset().mockResolvedValue({});
+    managedRoomHookMock.advanceWaitingRoomGame.mockReset().mockResolvedValue(
+      buildRoom({
+        phase: "countdown",
+        presentationStatus: "active",
+        quizId: "quiz-1",
+        quizTitle: "Ciências publicadas",
+        questionNumber: 1,
+        totalQuestions: 1,
+      }),
+    );
     managedRoomHookMock.associateWaitingRoomQuiz.mockReset().mockResolvedValue(
       buildRoom({
         quizId: "quiz-1",
@@ -328,5 +343,25 @@ describe("WaitingRoomPage", () => {
     expect(
       await screen.findByText("Quiz associado: Ciências publicadas"),
     ).toBeInTheDocument();
+  });
+
+  it("inicia o quiz associado e entra na contagem regressiva", async () => {
+    const browserUser = userEvent.setup();
+    roomHookMock.state.room = buildRoom({
+      quizId: "quiz-1",
+      quizTitle: "Ciências publicadas",
+    });
+    renderWaitingRoom();
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Iniciar quiz" }),
+    );
+
+    expect(managedRoomHookMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: "administrador-1" }),
+      { gameId: "ABC234", action: "advance-game" },
+    );
+    expect(await screen.findByText("Contagem regressiva")).toBeInTheDocument();
+    expect(screen.getByText("Pergunta 1 de 1")).toBeInTheDocument();
   });
 });

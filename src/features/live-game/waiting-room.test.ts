@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  advanceWaitingRoomGame,
   associateWaitingRoomQuiz,
   createWaitingRoom,
   endWaitingRoom,
@@ -291,6 +292,48 @@ describe("cliente da sala de espera", () => {
           gameId: "ABC234",
           action: "associate-quiz",
           quizId: "quiz-1",
+        }),
+      }),
+    );
+  });
+
+  it("solicita o avanço da fase do quiz", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          room: {
+            id: "ABC234",
+            phase: "countdown",
+            presentationStatus: "active",
+            createdAt: 1_000,
+            participantCount: 2,
+            questionNumber: 1,
+            totalQuestions: 3,
+            phaseTiming: { startedAt: 2_000, durationMs: 3_000 },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      advanceWaitingRoomGame(
+        { getIdToken },
+        { gameId: "ABC234", action: "advance-game" },
+      ),
+    ).resolves.toMatchObject({
+      phase: "countdown",
+      questionNumber: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/games",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          gameId: "ABC234",
+          action: "advance-game",
         }),
       }),
     );

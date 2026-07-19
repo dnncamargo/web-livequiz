@@ -76,6 +76,12 @@ export interface FirebaseAdminServices {
     presentationStatus: "inactive" | "active",
     changedAt: number,
   ) => Promise<void>;
+  setWaitingRoomGameState: (
+    gameId: string,
+    privateFields: Record<string, unknown>,
+    publicFields: Record<string, unknown>,
+    changedAt: number,
+  ) => Promise<void>;
   setWaitingRoomQuiz: (
     gameId: string,
     quiz: { id: string; title: string } | null,
@@ -484,6 +490,26 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           presentationStatus === "inactive" ? changedAt : null,
         [`publicGames/${gameId}/presentationStatus`]: presentationStatus,
       };
+
+      await database.ref().update(updates);
+    },
+    setWaitingRoomGameState: async (
+      gameId,
+      privateFields,
+      publicFields,
+      changedAt,
+    ) => {
+      const updates: Record<string, unknown> = {
+        [`liveGames/${gameId}/updatedAt`]: changedAt,
+      };
+
+      for (const [field, value] of Object.entries(privateFields)) {
+        updates[`liveGames/${gameId}/${field}`] = value;
+      }
+
+      for (const [field, value] of Object.entries(publicFields)) {
+        updates[`publicGames/${gameId}/${field}`] = value;
+      }
 
       await database.ref().update(updates);
     },

@@ -8,10 +8,12 @@ import {
   type JoinParticipantRequest,
   type ParticipantSession,
 } from "../../shared/participant";
+import type { PublicWaitingRoom } from "../../shared/waiting-room";
 import {
   DEFAULT_PARTICIPANT_AVATAR,
   PARTICIPANT_AVATARS,
 } from "../../shared/avatar";
+import { useRemainingPhaseSeconds } from "../live-game/phase-timing";
 import { usePublicWaitingRoom } from "../live-game/use-public-waiting-room";
 import {
   clearActiveParticipantSession,
@@ -55,6 +57,86 @@ const PRESENCE_STATUS_LABELS = {
   "temporarily-disconnected": "Conexão temporariamente interrompida",
   error: "Falha na presença",
 } as const;
+
+function ParticipantGameState({ room }: { room: PublicWaitingRoom }) {
+  const remainingSeconds = useRemainingPhaseSeconds(room.phaseTiming);
+  const questionProgress =
+    room.questionNumber && room.totalQuestions
+      ? `Pergunta ${room.questionNumber} de ${room.totalQuestions}`
+      : null;
+
+  if (room.phase === "waiting") {
+    return (
+      <section className="participant-game-state" aria-live="polite">
+        <strong>Aguarde o início do quiz</strong>
+        <span>A apresentação ainda está recebendo participantes.</span>
+      </section>
+    );
+  }
+
+  if (room.phase === "countdown") {
+    return (
+      <section className="participant-game-state" aria-live="polite">
+        {questionProgress && <span>{questionProgress}</span>}
+        <strong className="participant-countdown">
+          {remainingSeconds ?? 0}
+        </strong>
+        <span>Prepare-se para responder!</span>
+      </section>
+    );
+  }
+
+  if (
+    (room.phase === "question" || room.phase === "revealing") &&
+    room.currentQuestion
+  ) {
+    const revealing = room.phase === "revealing";
+
+    return (
+      <section className="participant-game-state" aria-live="polite">
+        <header className="participant-question-heading">
+          <span>{questionProgress}</span>
+          {!revealing && (
+            <strong aria-label="Tempo restante">
+              {remainingSeconds ?? 0}s
+            </strong>
+          )}
+        </header>
+        <h2>{room.currentQuestion.prompt}</h2>
+        <p>
+          {revealing
+            ? "Confira a resposta correta."
+            : "Escolha uma alternativa."}
+        </p>
+        <ul className="participant-answer-options">
+          {room.currentQuestion.options.map((option, index) => {
+            const correct =
+              revealing &&
+              Boolean(room.revealedCorrectOptionIds?.includes(option.id));
+
+            return (
+              <li
+                key={option.id}
+                className={correct ? "participant-answer-correct" : undefined}
+              >
+                <span aria-hidden="true">{index + 1}</span>
+                <strong>{option.label}</strong>
+                {correct && <small>Resposta correta</small>}
+              </li>
+            );
+          })}
+        </ul>
+        {!revealing && (
+          <small className="participant-answer-note">
+            O envio da resposta será habilitado na próxima etapa.
+          </small>
+        )}
+      </section>
+    );
+  }
+
+  return null;
+}
 
 export function ParticipantJoinPanel({
   user,
@@ -212,6 +294,10 @@ export function ParticipantJoinPanel({
           </div>
         </div>
 
+        {sessionRoom.room && !roomEnded && (
+          <ParticipantGameState room={sessionRoom.room} />
+        )}
+
         {presence.error && !roomEnded && (
           <div className="test-result test-result-error" role="alert">
             <strong>Falha na conexão com a sala</strong>
@@ -243,19 +329,13 @@ export function ParticipantJoinPanel({
         )}
 
         {!roomEnded && effectiveModerationStatus !== "removed" && (
-          <>
-            <p>
-              Seu nickname foi salvo. A escolha de avatar será liberada no
-              próximo marco.
-            </p>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={leaveCurrentRoom}
-            >
-              Sair da sala
-            </button>
-          </>
+          <button
+            type="button"
+            className="secondary-button participant-leave-button"
+            onClick={leaveCurrentRoom}
+          >
+            Sair da sala
+          </button>
         )}
       </div>
     );

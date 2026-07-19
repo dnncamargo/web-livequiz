@@ -8,6 +8,7 @@ import {
   type RemoveWaitingRoomParticipantRequest,
 } from "../../shared/participant";
 import {
+  advanceWaitingRoomGameRequestSchema,
   apiErrorResponseSchema,
   associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
@@ -25,6 +26,7 @@ import {
   waitingRoomMutationResponseSchema,
   waitingRoomCodeSchema,
   type ArchiveWaitingRoomRequest,
+  type AdvanceWaitingRoomGameRequest,
   type AssociateWaitingRoomQuizRequest,
   type ArchivedWaitingRoom,
   type CreateWaitingRoomRequest,
@@ -155,6 +157,28 @@ export async function associateWaitingRoomQuiz(
     throw new WaitingRoomRequestError(
       "invalid-response",
       "O servidor retornou dados inválidos ao associar o quiz.",
+    );
+  }
+
+  return result.data.room;
+}
+
+export async function advanceWaitingRoomGame(
+  user: AdministratorUser,
+  input: AdvanceWaitingRoomGameRequest,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = advanceWaitingRoomGameRequestSchema.parse(input);
+  const payload = await mutateWaitingRoom(
+    user,
+    parsedInput,
+    "Não foi possível avançar a partida. Tente novamente.",
+  );
+  const result = waitingRoomMutationResponseSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw new WaitingRoomRequestError(
+      "invalid-response",
+      "O servidor retornou dados inválidos ao avançar a partida.",
     );
   }
 

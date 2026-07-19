@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ParticipantJoinPanel } from "./ParticipantJoinPanel";
 import { ParticipantSessionRequestError } from "./participant-session";
+import type { PublicWaitingRoom } from "../../shared/waiting-room";
 
 const joinPanelMocks = vi.hoisted(() => ({
   joinParticipantSession: vi.fn(),
@@ -25,12 +26,7 @@ const joinPanelMocks = vi.hoisted(() => ({
       phase: "waiting" as const,
       createdAt: 1_000,
       participantCount: 1,
-    } as null | {
-      id: string;
-      phase: "waiting" | "finished";
-      createdAt: number;
-      participantCount: number;
-    },
+    } as PublicWaitingRoom | null,
     loading: false,
     error: null as string | null,
   },
@@ -246,6 +242,43 @@ describe("ParticipantJoinPanel", () => {
       await screen.findByText("Esta apresentação foi encerrada"),
     ).toBeInTheDocument();
     expect(joinPanelMocks.presenceGameId).toBeNull();
+  });
+
+  it("apresenta as alternativas da pergunta ativa sem marcar o gabarito", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      name: "Turma 8A",
+      phase: "question",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 1,
+      questionNumber: 1,
+      totalQuestions: 2,
+      phaseTiming: { startedAt: Date.now(), durationMs: 20_000 },
+      currentQuestion: {
+        id: "pergunta-1",
+        type: "single-choice",
+        prompt: "Qual é a capital do Brasil?",
+        position: 0,
+        durationMs: 20_000,
+        points: 1_000,
+        options: [
+          { id: "opcao-a", label: "Brasília" },
+          { id: "opcao-b", label: "Salvador" },
+        ],
+      },
+    };
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(
+      await screen.findByText("Qual é a capital do Brasil?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Brasília")).toBeInTheDocument();
+    expect(screen.getByText("Salvador")).toBeInTheDocument();
+    expect(screen.queryByText("Resposta correta")).not.toBeInTheDocument();
+    expect(joinPanelMocks.presenceGameId).toBe("ABC234");
   });
 
   it("preenche o código identificado no link da sala", async () => {

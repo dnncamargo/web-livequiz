@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   WAITING_ROOM_CODE_ALPHABET,
   WAITING_ROOM_CODE_LENGTH,
+  advanceWaitingRoomGameRequestSchema,
   associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
   archivedWaitingRoomSchema,
@@ -17,6 +18,7 @@ import {
   waitingRoomNameSchema,
   waitingRoomPhaseSchema,
   type ArchiveWaitingRoomRequest,
+  type AdvanceWaitingRoomGameRequest,
   type AssociateWaitingRoomQuizRequest,
   type ArchivedWaitingRoom,
   type CreateWaitingRoomRequest,
@@ -24,6 +26,7 @@ import {
   type EndWaitingRoomRequest,
   type PresentWaitingRoomRequest,
   type PublicWaitingRoom,
+  type PublicQuizQuestion,
   type RestoreWaitingRoomRequest,
 } from "../../src/shared/waiting-room.js";
 import {
@@ -34,11 +37,17 @@ import {
   type ManagedWaitingRoom,
   type RemoveWaitingRoomParticipantRequest,
 } from "../../src/shared/participant.js";
+import {
+  quizQuestionSchema,
+  quizQuestionsSchema,
+  type QuizQuestion,
+} from "../../src/shared/quiz.js";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import { HttpError } from "./http-error.js";
-import { getOwnedQuiz } from "./quiz-service.js";
+import { getOwnedQuiz, getQuizDetail } from "./quiz-service.js";
 
 const MAX_CODE_GENERATION_ATTEMPTS = 8;
+const QUESTION_COUNTDOWN_DURATION_MS = 3_000;
 
 const privateParticipantSchema = z
   .object({
@@ -64,6 +73,21 @@ const privateWaitingRoomSchema = z
     presentationStatus: presentationStatusSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     participants: z.record(z.string(), z.unknown()).optional(),
+    quizQuestions: quizQuestionsSchema.optional(),
+    currentQuestionIndex: z.number().int().nonnegative().optional(),
+    currentQuestion: quizQuestionSchema.optional(),
+    revealedCorrectOptionIds: z
+      .array(z.string().min(1).max(128))
+      .length(1)
+      .optional(),
+    totalQuestions: z.number().int().positive().optional(),
+    phaseTiming: z
+      .object({
+        startedAt: z.number().int().nonnegative(),
+        durationMs: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
   })
   .passthrough();
 
@@ -99,6 +123,18 @@ export function generateWaitingRoomCode(
 
 function getRoomName(gameId: string, name?: string): string {
   return name ?? `Sala ${gameId}`;
+}
+
+function toPublicQuizQuestion(question: QuizQuestion): PublicQuizQuestion {
+  return {
+    id: question.id,
+    type: question.type,
+    prompt: question.prompt,
+    position: question.position,
+    durationMs: question.durationMs,
+    points: question.points,
+    options: question.options,
+  };
 }
 
 function buildManagedWaitingRoom(
@@ -155,10 +191,21 @@ function buildManagedWaitingRoom(
       quizId: roomResult.data.quizId,
       quizTitle: roomResult.data.quizTitle,
       phase: roomResult.data.phase,
+      presentationStatus: roomResult.data.presentationStatus,
       createdAt: roomResult.data.createdAt,
       participantCount: participants.filter(
         ({ moderationStatus }) => moderationStatus !== "removed",
       ).length,
+      currentQuestion: roomResult.data.currentQuestion
+        ? toPublicQuizQuestion(roomResult.data.currentQuestion)
+        : undefined,
+      revealedCorrectOptionIds: roomResult.data.revealedCorrectOptionIds,
+      questionNumber:
+        roomResult.data.currentQuestionIndex === undefined
+          ? undefined
+          : roomResult.data.currentQuestionIndex + 1,
+      totalQuestions: roomResult.data.totalQuestions,
+      phaseTiming: roomResult.data.phaseTiming,
     },
     participants,
   });
@@ -290,6 +337,14 @@ export async function associateWaitingRoomQuiz(
     ? await getOwnedQuiz(ownerId, parsedInput.quizId, services)
     : null;
 
+  if (waitingRoom.room.phase !== "waiting") {
+    throw new HttpError(
+      409,
+      "quiz-association-locked",
+      "A associação do quiz só pode ser alterada antes do início da partida.",
+    );
+  }
+
   if (quiz && quiz.status !== "published") {
     throw new HttpError(
       409,
@@ -314,6 +369,201 @@ export async function associateWaitingRoomQuiz(
     participants: waitingRoom.room.participants,
     ...(quiz ? { quizId: quiz.id, quizTitle: quiz.title } : {}),
   });
+}
+
+export async function advanceWaitingRoomGame(
+  ownerId: string,
+  input: AdvanceWaitingRoomGameRequest,
+  services: FirebaseAdminServices,
+  now: () => number = Date.now,
+): Promise<PublicWaitingRoom> {
+  const parsedInput = advanceWaitingRoomGameRequestSchema.parse(input);
+  await getManagedWaitingRoom(ownerId, services, parsedInput.gameId);
+  const roomValue = await services.getWaitingRoom(parsedInput.gameId);
+  const roomResult = privateWaitingRoomSchema.safeParse(roomValue);
+
+  if (!roomResult.success) {
+    throw new HttpError(
+      500,
+      "waiting-room-state-invalid",
+      "A sala contém dados inválidos para controlar a partida.",
+    );
+  }
+
+  if (roomResult.data.ownerId !== ownerId) {
+    throw new HttpError(
+      403,
+      "waiting-room-owner-required",
+      "Esta sala pertence a outro administrador.",
+    );
+  }
+
+  const changedAt = now();
+  const phase = roomResult.data.phase;
+  let privateFields: Record<string, unknown>;
+  let publicFields: Record<string, unknown>;
+
+  if (phase === "waiting") {
+    if (!roomResult.data.quizId) {
+      throw new HttpError(
+        409,
+        "room-quiz-required",
+        "Associe um quiz publicado antes de iniciar a partida.",
+      );
+    }
+
+    const quiz = await getQuizDetail(ownerId, roomResult.data.quizId, services);
+
+    if (quiz.status !== "published") {
+      throw new HttpError(
+        409,
+        "quiz-not-published",
+        "Publique o quiz associado antes de iniciar a partida.",
+      );
+    }
+
+    if (quiz.questions.length === 0) {
+      throw new HttpError(
+        409,
+        "quiz-has-no-questions",
+        "Adicione pelo menos uma pergunta antes de iniciar a partida.",
+      );
+    }
+
+    const phaseTiming = {
+      startedAt: changedAt,
+      durationMs: QUESTION_COUNTDOWN_DURATION_MS,
+    };
+    privateFields = {
+      phase: "countdown",
+      presentationStatus: "active",
+      quizQuestions: quiz.questions,
+      currentQuestionIndex: 0,
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      totalQuestions: quiz.questions.length,
+      phaseTiming,
+    };
+    publicFields = {
+      phase: "countdown",
+      presentationStatus: "active",
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      questionNumber: 1,
+      totalQuestions: quiz.questions.length,
+      phaseTiming,
+    };
+  } else if (phase === "countdown") {
+    const questionIndex = roomResult.data.currentQuestionIndex ?? 0;
+    const question = roomResult.data.quizQuestions?.[questionIndex];
+
+    if (!question) {
+      throw new HttpError(
+        409,
+        "question-snapshot-missing",
+        "A pergunta atual não está disponível. Reinicie a sala.",
+      );
+    }
+
+    const phaseTiming = {
+      startedAt: changedAt,
+      durationMs: question.durationMs,
+    };
+    privateFields = {
+      phase: "question",
+      currentQuestion: question,
+      revealedCorrectOptionIds: null,
+      phaseTiming,
+    };
+    publicFields = {
+      phase: "question",
+      currentQuestion: toPublicQuizQuestion(question),
+      revealedCorrectOptionIds: null,
+      questionNumber: questionIndex + 1,
+      totalQuestions: roomResult.data.quizQuestions?.length,
+      phaseTiming,
+    };
+  } else if (phase === "question") {
+    const question = roomResult.data.currentQuestion;
+
+    if (!question) {
+      throw new HttpError(
+        409,
+        "current-question-missing",
+        "A pergunta atual não está disponível para revelar a resposta.",
+      );
+    }
+
+    privateFields = {
+      phase: "revealing",
+      revealedCorrectOptionIds: question.correctOptionIds,
+      phaseTiming: null,
+    };
+    publicFields = {
+      phase: "revealing",
+      revealedCorrectOptionIds: question.correctOptionIds,
+      phaseTiming: null,
+    };
+  } else if (phase === "revealing") {
+    const questions = roomResult.data.quizQuestions ?? [];
+    const nextQuestionIndex = (roomResult.data.currentQuestionIndex ?? 0) + 1;
+    const hasNextQuestion = Boolean(questions[nextQuestionIndex]);
+
+    if (hasNextQuestion) {
+      const phaseTiming = {
+        startedAt: changedAt,
+        durationMs: QUESTION_COUNTDOWN_DURATION_MS,
+      };
+      privateFields = {
+        phase: "countdown",
+        currentQuestionIndex: nextQuestionIndex,
+        currentQuestion: null,
+        revealedCorrectOptionIds: null,
+        phaseTiming,
+      };
+      publicFields = {
+        phase: "countdown",
+        currentQuestion: null,
+        revealedCorrectOptionIds: null,
+        questionNumber: nextQuestionIndex + 1,
+        totalQuestions: questions.length,
+        phaseTiming,
+      };
+    } else {
+      privateFields = {
+        phase: "finished",
+        currentQuestion: null,
+        revealedCorrectOptionIds: null,
+        phaseTiming: null,
+      };
+      publicFields = {
+        phase: "finished",
+        currentQuestion: null,
+        revealedCorrectOptionIds: null,
+        phaseTiming: null,
+      };
+    }
+  } else {
+    throw new HttpError(
+      409,
+      "game-phase-cannot-advance",
+      "Esta fase ainda não possui uma transição disponível.",
+    );
+  }
+
+  await services.setWaitingRoomGameState(
+    parsedInput.gameId,
+    privateFields,
+    publicFields,
+    changedAt,
+  );
+  const updatedRoom = await getManagedWaitingRoom(
+    ownerId,
+    services,
+    parsedInput.gameId,
+  );
+
+  return updatedRoom.room;
 }
 
 export async function getManagedWaitingRoom(

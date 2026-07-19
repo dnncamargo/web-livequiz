@@ -126,6 +126,30 @@ describe("regras do Realtime Database", () => {
     );
   });
 
+  it("mantém a presença durante uma pergunta ativa", async () => {
+    await seedParticipant();
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await set(
+        ref(context.database(databaseUrl), "liveGames/sala-1/phase"),
+        "question",
+      );
+    });
+    const database = participantDatabase("participante-1");
+
+    await assertSucceeds(
+      set(
+        ref(
+          database,
+          `liveGames/sala-1/participants/participante-1/presence/connections/${connectionId}`,
+        ),
+        {
+          connectedAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+        },
+      ),
+    );
+  });
+
   it("permite que o participante acompanhe somente a própria moderação", async () => {
     await seedParticipant("participante-1");
     await seedParticipant("participante-2");

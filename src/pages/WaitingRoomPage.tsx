@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRoom } from "../features/live-game/use-managed-waiting-room";
 import { usePublicWaitingRoom } from "../features/live-game/use-public-waiting-room";
 import {
+  advanceWaitingRoomGame,
   associateWaitingRoomQuiz,
   archiveWaitingRoom,
   endWaitingRoom,
@@ -13,12 +14,43 @@ import {
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
 import { useQuizLibrary } from "../features/quizzes/use-quiz-library";
+import type { LiveGamePhase } from "../shared/game-types";
+import type { PublicWaitingRoom } from "../shared/waiting-room";
 
 const MODERATION_LABELS = {
   "waiting-approval": "Pronto",
   approved: "Aprovado",
   removed: "Removido",
 } as const;
+
+const GAME_PHASE_LABELS: Record<LiveGamePhase, string> = {
+  waiting: "Aguardando participantes",
+  countdown: "Contagem regressiva",
+  question: "Pergunta em andamento",
+  revealing: "Resposta revelada",
+  ranking: "Ranking",
+  podium: "Pódio",
+  finished: "Finalizada",
+};
+
+function getAdvanceGameLabel(room: PublicWaitingRoom): string {
+  switch (room.phase) {
+    case "waiting":
+      return "Iniciar quiz";
+    case "countdown":
+      return "Exibir pergunta";
+    case "question":
+      return "Revelar resposta";
+    case "revealing":
+      return room.questionNumber === room.totalQuestions
+        ? "Finalizar quiz"
+        : "Próxima pergunta";
+    case "finished":
+      return "Quiz finalizado";
+    default:
+      return "Avançar quiz";
+  }
+}
 
 export function WaitingRoomPage() {
   const { id = "" } = useParams();
@@ -42,13 +74,21 @@ export function WaitingRoomPage() {
     quizTitle?: string;
   } | null>(null);
   const [associatingQuiz, setAssociatingQuiz] = useState(false);
+  const [advancingGame, setAdvancingGame] = useState(false);
+  const [gameStateOverride, setGameStateOverride] =
+    useState<PublicWaitingRoom | null>(null);
   const publicRoomState = usePublicWaitingRoom(id);
   const managedRoomState = useManagedWaitingRoom(
     user,
     id,
     `${publicRoomState.room?.phase ?? "missing"}:${publicRoomState.room?.participantCount ?? 0}:${refreshRevision}`,
   );
-  const room = publicRoomState.room ?? managedRoomState.waitingRoom?.room;
+  const synchronizedRoom =
+    publicRoomState.room ?? managedRoomState.waitingRoom?.room;
+  const room =
+    gameStateOverride && synchronizedRoom?.phase !== gameStateOverride.phase
+      ? gameStateOverride
+      : synchronizedRoom;
   const quizLibrary = useQuizLibrary(user);
   const publishedQuizzes = quizLibrary.quizzes.filter(
     ({ status }) => status === "published",
@@ -82,6 +122,10 @@ export function WaitingRoomPage() {
     ? quizAssociationOverride.quizTitle
     : room?.quizTitle;
   const selectedQuizId = quizSelection ?? associatedQuizId;
+  const canAdvanceGame = Boolean(
+    room &&
+    ["waiting", "countdown", "question", "revealing"].includes(room.phase),
+  );
 
   async function confirmParticipantRemoval(participantId: string) {
     if (!user) {
@@ -214,6 +258,35 @@ export function WaitingRoomPage() {
     }
   }
 
+  async function handleAdvanceGame() {
+    if (!user || !room) {
+      return;
+    }
+
+    setAdvancingGame(true);
+    setRoomActionError("");
+
+    try {
+      const updatedRoom = await advanceWaitingRoomGame(user, {
+        gameId: id,
+        action: "advance-game",
+      });
+
+      setGameStateOverride(updatedRoom);
+      setPresentationStatusOverride(updatedRoom.presentationStatus ?? null);
+      setRefreshRevision((revision) => revision + 1);
+    } catch (error) {
+      console.error("Erro ao avançar quiz:", error);
+      setRoomActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível avançar o quiz. Tente novamente.",
+      );
+    } finally {
+      setAdvancingGame(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="page" aria-busy="true">
@@ -260,11 +333,7 @@ export function WaitingRoomPage() {
           <div className="room-summary" aria-label="Resumo da sala">
             <div>
               <span>Fase</span>
-              <strong>
-                {room?.phase === "waiting"
-                  ? "Aguardando participantes"
-                  : "Finalizada"}
-              </strong>
+              <strong>{GAME_PHASE_LABELS[room.phase]}</strong>
             </div>
             <div>
               <span>Apresentação</span>
@@ -280,6 +349,17 @@ export function WaitingRoomPage() {
               </strong>
             </div>
           </div>
+
+          {room.questionNumber && room.totalQuestions && (
+            <div className="room-question-status" aria-live="polite">
+              <span>
+                Pergunta {room.questionNumber} de {room.totalQuestions}
+              </span>
+              {room.currentQuestion && (
+                <strong>{room.currentQuestion.prompt}</strong>
+              )}
+            </div>
+          )}
         </section>
 
         <section
@@ -370,7 +450,11 @@ export function WaitingRoomPage() {
               <select
                 id="room-quiz"
                 value={selectedQuizId}
-                disabled={quizLibrary.loading || associatingQuiz}
+                disabled={
+                  quizLibrary.loading ||
+                  associatingQuiz ||
+                  room.phase !== "waiting"
+                }
                 onChange={(event) => setQuizSelection(event.target.value)}
               >
                 <option value="">Sem quiz associado</option>
@@ -394,6 +478,7 @@ export function WaitingRoomPage() {
                 disabled={
                   quizLibrary.loading ||
                   associatingQuiz ||
+                  room.phase !== "waiting" ||
                   selectedQuizId === associatedQuizId
                 }
                 onClick={() => void handleQuizAssociation()}
@@ -418,6 +503,19 @@ export function WaitingRoomPage() {
               <button
                 type="button"
                 className="primary-button compact-button"
+                disabled={
+                  advancingGame ||
+                  !canAdvanceGame ||
+                  (room.phase === "waiting" && !associatedQuizId)
+                }
+                onClick={() => void handleAdvanceGame()}
+              >
+                {advancingGame ? "Avançando..." : getAdvanceGameLabel(room)}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-button compact-button"
                 disabled={processingRoom}
                 onClick={() => void handlePresentRoom()}
               >

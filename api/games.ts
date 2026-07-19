@@ -1,6 +1,7 @@
 import { authorizeAdministratorRequest } from "./_lib/administrator-authorization.js";
 import { getFirebaseAdminServices } from "./_lib/firebase-admin.js";
 import {
+  advanceWaitingRoomGame,
   associateWaitingRoomQuiz,
   archiveWaitingRoom,
   createWaitingRoom,
@@ -15,6 +16,7 @@ import {
 } from "./_lib/waiting-room-service.js";
 import { removeWaitingRoomParticipantRequestSchema } from "../src/shared/participant.js";
 import {
+  advanceWaitingRoomGameRequestSchema,
   associateWaitingRoomQuizRequestSchema,
   archiveWaitingRoomRequestSchema,
   createWaitingRoomRequestSchema,
@@ -144,6 +146,19 @@ export async function PATCH(request: Request): Promise<Response> {
       services,
     );
     const payload = await readJsonBody(request);
+
+    const advanceGameResult =
+      advanceWaitingRoomGameRequestSchema.safeParse(payload);
+
+    if (advanceGameResult.success) {
+      const room = await advanceWaitingRoomGame(
+        administrator.uid,
+        advanceGameResult.data,
+        services,
+      );
+
+      return jsonResponse({ room }, 200);
+    }
 
     const associateQuizResult =
       associateWaitingRoomQuizRequestSchema.safeParse(payload);
