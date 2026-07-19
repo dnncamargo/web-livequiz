@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isRestorableParticipant,
+  isSameRestorableParticipant,
   resolveParticipantTransactionGame,
 } from "./firebase-admin.js";
 
@@ -43,5 +44,30 @@ describe("reentrada do participante", () => {
     expect(isRestorableParticipant({ moderationStatus: "removed" })).toBe(
       false,
     );
+  });
+
+  it("restaura apenas quando nickname e avatar continuam iguais", () => {
+    const participant = {
+      nickname: "Estrela Azul",
+      avatar: "🦊",
+      moderationStatus: "waiting-approval",
+    };
+
+    expect(isSameRestorableParticipant(participant, "Estrela Azul", "🦊")).toBe(
+      true,
+    );
+    expect(isSameRestorableParticipant(participant, "Cometa", "🦊")).toBe(
+      false,
+    );
+    expect(isSameRestorableParticipant(participant, "Estrela Azul", "🐼")).toBe(
+      false,
+    );
+    expect(
+      isSameRestorableParticipant(
+        { ...participant, moderationStatus: "removed" },
+        "Estrela Azul",
+        "🦊",
+      ),
+    ).toBe(false);
   });
 });

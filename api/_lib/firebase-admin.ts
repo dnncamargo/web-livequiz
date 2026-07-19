@@ -154,8 +154,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isRestorableParticipant(value: unknown): boolean {
+export function isRestorableParticipant(
+  value: unknown,
+): value is Record<string, unknown> {
   return isRecord(value) && value.moderationStatus !== "removed";
+}
+
+export function isSameRestorableParticipant(
+  value: unknown,
+  nickname: string,
+  avatar: string,
+): boolean {
+  return (
+    isRestorableParticipant(value) &&
+    value.nickname === nickname &&
+    value.avatar === avatar
+  );
 }
 
 export function resolveParticipantTransactionGame(
@@ -560,7 +574,9 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
             : {};
           const existingParticipant = participants[participantId];
 
-          if (isRestorableParticipant(existingParticipant)) {
+          if (
+            isSameRestorableParticipant(existingParticipant, nickname, avatar)
+          ) {
             outcome = "restored";
             return transactionGame;
           }

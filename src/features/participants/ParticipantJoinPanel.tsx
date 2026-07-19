@@ -164,9 +164,7 @@ export function ParticipantJoinPanel({
   });
 
   function leaveCurrentRoom() {
-    clearActiveParticipantSession();
-    setParticipant(null);
-    setRequestFailure(null);
+    returnToParticipantEntry();
   }
 
   if (restoring) {

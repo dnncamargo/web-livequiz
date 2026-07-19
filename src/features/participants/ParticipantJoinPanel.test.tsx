@@ -164,10 +164,38 @@ describe("ParticipantJoinPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Código da sala")).toBeInTheDocument();
     expect(screen.getByLabelText("Seu nickname")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código da sala")).toHaveValue("");
+    expect(screen.getByLabelText("Seu nickname")).toHaveValue("");
     expect(joinPanelMocks.presenceGameId).toBeNull();
     expect(
       screen.queryByText("Falha ao acompanhar sua entrada"),
     ).not.toBeInTheDocument();
+  });
+
+  it("permite entrar novamente com outro nickname no mesmo UID", async () => {
+    const browserUser = userEvent.setup();
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.joinParticipantSession.mockImplementation(
+      (_user: unknown, input: { nickname: string }) =>
+        Promise.resolve({ ...participant, nickname: input.nickname }),
+    );
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    await browserUser.click(
+      await screen.findByRole("button", { name: "Sair da sala" }),
+    );
+    await browserUser.type(screen.getByLabelText("Código da sala"), "ABC234");
+    await browserUser.type(screen.getByLabelText("Seu nickname"), "Cometa");
+    await browserUser.click(
+      screen.getByRole("button", { name: "Entrar na sala" }),
+    );
+
+    expect(joinPanelMocks.joinParticipantSession).toHaveBeenCalledWith(
+      participantUser,
+      { gameId: "ABC234", nickname: "Cometa", avatar: "🦊" },
+    );
+    expect(await screen.findByText("Cometa")).toBeInTheDocument();
   });
 
   it("limpa a sessão e retorna ao formulário quando o participante é removido", async () => {
