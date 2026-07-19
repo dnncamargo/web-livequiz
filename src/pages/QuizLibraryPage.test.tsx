@@ -4,13 +4,14 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QuizLibraryPage } from "./QuizLibraryPage";
 
 const pageMocks = vi.hoisted(() => ({
   user: { uid: "administrador-1", getIdToken: vi.fn() },
   createQuizDraft: vi.fn(),
   changeQuizDraftStatus: vi.fn(),
+  createWaitingRoom: vi.fn(),
   library: {
     quizzes: [] as Array<{
       id: string;
@@ -41,10 +42,18 @@ vi.mock("../features/quizzes/use-quiz-library", () => ({
   useQuizLibrary: () => pageMocks.library,
 }));
 
+vi.mock("../features/live-game/waiting-room", () => ({
+  WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
+  createWaitingRoom: pageMocks.createWaitingRoom,
+}));
+
 function renderQuizLibrary() {
   return render(
-    <MemoryRouter>
-      <QuizLibraryPage />
+    <MemoryRouter initialEntries={["/admin/quizzes"]}>
+      <Routes>
+        <Route path="/admin/quizzes" element={<QuizLibraryPage />} />
+        <Route path="/admin/room/:id" element={<p>Sala ao vivo aberta</p>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -56,6 +65,7 @@ describe("QuizLibraryPage", () => {
     pageMocks.library.error = null;
     pageMocks.createQuizDraft.mockReset().mockResolvedValue({});
     pageMocks.changeQuizDraftStatus.mockReset().mockResolvedValue({});
+    pageMocks.createWaitingRoom.mockReset().mockResolvedValue({ id: "ABC234" });
   });
 
   afterEach(cleanup);
@@ -117,5 +127,32 @@ describe("QuizLibraryPage", () => {
       pageMocks.user,
       { quizId: "quiz-1", action: "publish-quiz" },
     );
+  });
+
+  it("organiza um quiz publicado em uma nova sala ao vivo", async () => {
+    const browserUser = userEvent.setup();
+    pageMocks.library.quizzes = [
+      {
+        id: "quiz-1",
+        ownerId: "administrador-1",
+        title: "Geografia",
+        description: "",
+        status: "published",
+        questionCount: 3,
+        createdAt: 1_000,
+        updatedAt: 1_000,
+      },
+    ];
+    renderQuizLibrary();
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Organizar ao vivo" }),
+    );
+
+    expect(pageMocks.createWaitingRoom).toHaveBeenCalledWith(pageMocks.user, {
+      name: "Geografia",
+      quizId: "quiz-1",
+    });
+    expect(await screen.findByText("Sala ao vivo aberta")).toBeInTheDocument();
   });
 });

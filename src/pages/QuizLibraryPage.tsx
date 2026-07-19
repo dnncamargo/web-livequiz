@@ -1,8 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
+import {
+  createWaitingRoom,
+  WaitingRoomRequestError,
+} from "../features/live-game/waiting-room";
 import {
   createQuizDraft,
   changeQuizDraftStatus,
@@ -15,6 +19,7 @@ import {
   QUIZ_TITLE_MAX_LENGTH,
   type CreateQuizRequest,
   type ChangeQuizStatusRequest,
+  type Quiz,
 } from "../shared/quiz";
 
 const QUIZ_STATUS_LABELS = {
@@ -25,6 +30,7 @@ const QUIZ_STATUS_LABELS = {
 
 export function QuizLibraryPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [refreshRevision, setRefreshRevision] = useState(0);
   const library = useQuizLibrary(user, refreshRevision);
   const [actionError, setActionError] = useState("");
@@ -82,6 +88,29 @@ export function QuizLibraryPage() {
     }
   }
 
+  async function handleOrganizeLive(quiz: Quiz) {
+    if (!user) return;
+
+    setProcessingQuizId(quiz.id);
+    setActionError("");
+
+    try {
+      const room = await createWaitingRoom(user, {
+        name: quiz.title,
+        quizId: quiz.id,
+      });
+      navigate(`/admin/room/${room.id}`);
+    } catch (error) {
+      console.error("Erro ao organizar quiz ao vivo:", error);
+      setActionError(
+        error instanceof WaitingRoomRequestError
+          ? error.message
+          : "Não foi possível preparar a sala ao vivo.",
+      );
+      setProcessingQuizId(null);
+    }
+  }
+
   return (
     <main className="page management-page">
       <section className="card management-library-card">
@@ -90,7 +119,8 @@ export function QuizLibraryPage() {
             <span className="eyebrow">Conteúdo</span>
             <h1>Quizzes</h1>
             <p>
-              Organize o conteúdo permanente antes de vinculá-lo a uma sala.
+              Crie o conteúdo e organize uma partida ao vivo quando estiver
+              pronto.
             </p>
           </div>
         </header>
@@ -133,7 +163,7 @@ export function QuizLibraryPage() {
 
         {actionError && (
           <div className="test-result test-result-error" role="alert">
-            <strong>Não foi possível criar o quiz</strong>
+            <strong>Não foi possível concluir a ação</strong>
             <p>{actionError}</p>
           </div>
         )}
@@ -200,6 +230,18 @@ export function QuizLibraryPage() {
                         }
                       >
                         Publicar
+                      </button>
+                    )}
+                    {quiz.status === "published" && (
+                      <button
+                        type="button"
+                        className="primary-button compact-button"
+                        disabled={processingQuizId === quiz.id}
+                        onClick={() => void handleOrganizeLive(quiz)}
+                      >
+                        {processingQuizId === quiz.id
+                          ? "Preparando sala..."
+                          : "Organizar ao vivo"}
                       </button>
                     )}
                     <button

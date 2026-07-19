@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HomePage } from "./HomePage";
 
 const authMock = vi.hoisted(() => ({
@@ -27,30 +27,19 @@ const authMock = vi.hoisted(() => ({
   },
 }));
 
-const publicRoomMock = vi.hoisted(() => ({
-  gameId: "",
-  state: {
-    room: null as null | {
-      id: string;
-      phase: "waiting" | "finished";
-      createdAt: number;
-      participantCount: number;
-    },
-    loading: false,
-    error: null as string | null,
-  },
-}));
-
 vi.mock("../contexts/auth-context", () => ({
   useAuth: () => authMock.value,
 }));
 
-vi.mock("../features/live-game/use-public-waiting-room", () => ({
-  usePublicWaitingRoom: (gameId: string) => {
-    publicRoomMock.gameId = gameId;
-    return publicRoomMock.state;
-  },
-}));
+function setAnonymousParticipant() {
+  authMock.value.user = {
+    uid: "participante-1",
+    isAnonymous: true,
+    displayName: null,
+    email: null,
+  };
+  authMock.value.isAnonymous = true;
+}
 
 describe("HomePage", () => {
   beforeEach(() => {
@@ -64,57 +53,30 @@ describe("HomePage", () => {
     authMock.value.signInParticipant.mockReset().mockResolvedValue(undefined);
     authMock.value.signInAdministrator.mockReset().mockResolvedValue(undefined);
     authMock.value.logout.mockReset().mockResolvedValue(undefined);
-    publicRoomMock.gameId = "";
-    publicRoomMock.state.room = null;
-    publicRoomMock.state.loading = false;
-    publicRoomMock.state.error = null;
   });
 
   afterEach(cleanup);
 
-  it("inicia a autenticação anônima pela ação principal", async () => {
-    const user = userEvent.setup();
+  it("inicia automaticamente a autenticação anônima", async () => {
     render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: "Entrar como participante" }),
-    );
-
-    expect(authMock.value.signInParticipant).toHaveBeenCalledOnce();
-  });
-
-  it("exibe a entrada da sala quando a sessão anônima foi restaurada", async () => {
-    authMock.value.user = {
-      uid: "participante-1",
-      isAnonymous: true,
-      displayName: null,
-      email: null,
-    };
-    authMock.value.isAnonymous = true;
-
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>,
-    );
-
-    expect(
-      await screen.findByRole("button", { name: "Entrar na sala" }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(authMock.value.signInParticipant).toHaveBeenCalledOnce();
+    });
     expect(
       screen.queryByRole("button", { name: "Entrar como participante" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Painel de Controle" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("exibe uma mensagem útil quando a autenticação falha", async () => {
-    const user = userEvent.setup();
-    authMock.value.signInParticipant.mockRejectedValue({
-      code: "auth/network-request-failed",
-    });
+  it("abre diretamente o formulário quando a sessão anônima está pronta", async () => {
+    setAnonymousParticipant();
 
     render(
       <MemoryRouter>
@@ -122,22 +84,16 @@ describe("HomePage", () => {
       </MemoryRouter>,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: "Entrar como participante" }),
-    );
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Sem conexão com o serviço de autenticação",
-    );
+    expect(
+      await screen.findByRole("heading", { name: "Entrar em uma sala" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Entrar na sala" }),
+    ).toBeInTheDocument();
   });
 
-  it("identifica a sala recebida pelo link do participante", () => {
-    publicRoomMock.state.room = {
-      id: "ABC234",
-      phase: "waiting",
-      createdAt: 1_000,
-      participantCount: 3,
-    };
+  it("preenche o código recebido pelo link do participante", async () => {
+    setAnonymousParticipant();
 
     render(
       <MemoryRouter initialEntries={["/?join=abc234"]}>
@@ -145,34 +101,36 @@ describe("HomePage", () => {
       </MemoryRouter>,
     );
 
-    expect(publicRoomMock.gameId).toBe("ABC234");
-    expect(screen.getByLabelText("Sala ativa identificada")).toHaveTextContent(
+    expect(await screen.findByLabelText("Código da sala")).toHaveValue(
       "ABC234",
     );
-    expect(screen.getByText(/3 participante/i)).toBeInTheDocument();
   });
 
-  it("avisa quando o link aponta para uma apresentação finalizada", () => {
-    publicRoomMock.state.room = {
-      id: "ABC234",
-      phase: "finished",
-      createdAt: 1_000,
-      participantCount: 0,
-    };
+  it("permite tentar novamente quando a autenticação automática falha", async () => {
+    const browserUser = userEvent.setup();
+    authMock.value.signInParticipant
+      .mockRejectedValueOnce({ code: "auth/network-request-failed" })
+      .mockResolvedValueOnce(undefined);
 
     render(
-      <MemoryRouter initialEntries={["/?join=ABC234"]}>
+      <MemoryRouter>
         <HomePage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Apresentação finalizada")).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("Sala ativa identificada"),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Sem conexão com o serviço de autenticação",
+    );
+    await browserUser.click(
+      screen.getByRole("button", { name: "Tentar novamente" }),
+    );
+
+    await waitFor(() => {
+      expect(authMock.value.signInParticipant).toHaveBeenCalledTimes(2);
+    });
   });
 
-  it("não apresenta uma conta Google comum como administradora", () => {
+  it("troca uma conta Google comum por uma sessão de participante", async () => {
     authMock.value.user = {
       uid: "conta-google-1",
       isAnonymous: false,
@@ -186,11 +144,31 @@ describe("HomePage", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.getByText(/ainda não está autorizada para administrar/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Abrir gerenciamento" }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(authMock.value.logout).toHaveBeenCalledOnce();
+      expect(authMock.value.signInParticipant).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("mantém o administrador no Painel de Controle", async () => {
+    authMock.value.user = {
+      uid: "administrador-1",
+      isAnonymous: false,
+      displayName: "Professora Ana",
+      email: "ana@example.com",
+    };
+    authMock.value.isAdministrator = true;
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/admin" element={<p>Painel aberto</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Painel aberto")).toBeInTheDocument();
+    expect(authMock.value.signInParticipant).not.toHaveBeenCalled();
   });
 });

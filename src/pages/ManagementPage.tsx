@@ -1,133 +1,33 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/auth-context";
 import { useManagedWaitingRooms } from "../features/live-game/use-managed-waiting-rooms";
-import { useQuizLibrary } from "../features/quizzes/use-quiz-library";
 import {
   archiveWaitingRoom,
-  createWaitingRoom,
-  endWaitingRoom,
-  presentWaitingRoom,
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
-import {
-  WAITING_ROOM_NAME_MAX_LENGTH,
-  WAITING_ROOM_NAME_MIN_LENGTH,
-  type PublicWaitingRoom,
-} from "../shared/waiting-room";
+import type { LiveGamePhase } from "../shared/game-types";
+
+const ROOM_PHASE_LABELS: Record<LiveGamePhase, string> = {
+  waiting: "Sala de espera",
+  countdown: "Contagem regressiva",
+  question: "Pergunta em andamento",
+  revealing: "Resposta revelada",
+  ranking: "Ranking",
+  podium: "Pódio",
+  finished: "Quiz finalizado",
+};
 
 export function ManagementPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [newRoomName, setNewRoomName] = useState("");
-  const [newRoomQuizId, setNewRoomQuizId] = useState("");
-  const [creatingRoom, setCreatingRoom] = useState(false);
-  const [roomPendingClosure, setRoomPendingClosure] = useState<string | null>(
-    null,
-  );
   const [processingRoomId, setProcessingRoomId] = useState<string | null>(null);
   const [archivedRoomIds, setArchivedRoomIds] = useState<string[]>([]);
-  const [presentationStatusOverrides, setPresentationStatusOverrides] =
-    useState<
-      Record<string, NonNullable<PublicWaitingRoom["presentationStatus"]>>
-    >({});
   const [refreshRevision, setRefreshRevision] = useState(0);
   const [roomActionError, setRoomActionError] = useState("");
   const roomLibrary = useManagedWaitingRooms(user, refreshRevision);
-  const quizLibrary = useQuizLibrary(user);
-  const publishedQuizzes = quizLibrary.quizzes.filter(
-    ({ status }) => status === "published",
+  const activeRooms = roomLibrary.rooms.filter(
+    ({ id }) => !archivedRoomIds.includes(id),
   );
-  const activeRooms = roomLibrary.rooms
-    .filter(({ id }) => !archivedRoomIds.includes(id))
-    .map((room) => ({
-      ...room,
-      presentationStatus:
-        presentationStatusOverrides[room.id] ??
-        room.presentationStatus ??
-        "inactive",
-    }));
-
-  async function handleCreateWaitingRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!user) {
-      return;
-    }
-
-    setCreatingRoom(true);
-    setRoomActionError("");
-
-    try {
-      const room = await createWaitingRoom(user, {
-        name: newRoomName,
-        ...(newRoomQuizId ? { quizId: newRoomQuizId } : {}),
-      });
-      navigate(`/admin/room/${room.id}`);
-    } catch (error) {
-      console.error("Erro ao criar sala:", error);
-      setRoomActionError(
-        error instanceof WaitingRoomRequestError
-          ? error.message
-          : "Não foi possível criar a sala. Tente novamente.",
-      );
-      setCreatingRoom(false);
-    }
-  }
-
-  async function handlePresentWaitingRoom(gameId: string) {
-    if (!user) {
-      return;
-    }
-
-    setProcessingRoomId(gameId);
-    setRoomActionError("");
-
-    try {
-      await presentWaitingRoom(user, { gameId, action: "present-room" });
-      setPresentationStatusOverrides((statuses) => ({
-        ...statuses,
-        [gameId]: "active",
-      }));
-      navigate(`/?room=${gameId}`);
-    } catch (error) {
-      console.error("Erro ao apresentar sala:", error);
-      setRoomActionError(
-        error instanceof WaitingRoomRequestError
-          ? error.message
-          : "Não foi possível iniciar a apresentação.",
-      );
-      setProcessingRoomId(null);
-    }
-  }
-
-  async function handleEndWaitingRoom(gameId: string) {
-    if (!user) {
-      return;
-    }
-
-    setProcessingRoomId(gameId);
-    setRoomActionError("");
-
-    try {
-      await endWaitingRoom(user, { gameId, action: "end-room" });
-      setPresentationStatusOverrides((statuses) => ({
-        ...statuses,
-        [gameId]: "inactive",
-      }));
-      setRoomPendingClosure(null);
-      setRefreshRevision((revision) => revision + 1);
-    } catch (error) {
-      console.error("Erro ao encerrar apresentação:", error);
-      setRoomActionError(
-        error instanceof WaitingRoomRequestError
-          ? error.message
-          : "Não foi possível encerrar a apresentação.",
-      );
-    } finally {
-      setProcessingRoomId(null);
-    }
-  }
 
   async function handleArchiveWaitingRoom(gameId: string) {
     if (!user) {
@@ -159,47 +59,16 @@ export function ManagementPage() {
         <header className="management-header">
           <div>
             <span className="eyebrow">Painel de Controle</span>
-            <h1>Salas do Quizumba</h1>
-            <p>Crie, apresente, finalize ou arquive suas salas de quiz.</p>
+            <h1>Partidas ao vivo</h1>
+            <p>
+              Escolha um quiz publicado para preparar automaticamente uma nova
+              sala.
+            </p>
           </div>
+          <Link className="primary-button" to="/admin/quizzes">
+            Escolher quiz
+          </Link>
         </header>
-
-        <form className="room-creation-form" onSubmit={handleCreateWaitingRoom}>
-          <div className="form-field">
-            <label htmlFor="new-room-name">Nome da nova sala</label>
-            <input
-              id="new-room-name"
-              value={newRoomName}
-              minLength={WAITING_ROOM_NAME_MIN_LENGTH}
-              maxLength={WAITING_ROOM_NAME_MAX_LENGTH}
-              placeholder="Ex.: Quiz de Ciências — 8º ano"
-              required
-              onChange={(event) => setNewRoomName(event.target.value)}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="new-room-quiz">Quiz associado</label>
-            <select
-              id="new-room-quiz"
-              value={newRoomQuizId}
-              onChange={(event) => setNewRoomQuizId(event.target.value)}
-            >
-              <option value="">Sem quiz associado</option>
-              {publishedQuizzes.map((quiz) => (
-                <option key={quiz.id} value={quiz.id}>
-                  {quiz.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={creatingRoom}
-          >
-            {creatingRoom ? "Criando sala..." : "Criar sala"}
-          </button>
-        </form>
 
         {roomActionError && (
           <div className="test-result test-result-error" role="alert">
@@ -231,7 +100,9 @@ export function ManagementPage() {
             activeRooms.length === 0 && (
               <div className="empty-library">
                 <strong>Nenhuma sala disponível</strong>
-                <p>Informe um nome acima para criar a primeira sala.</p>
+                <p>
+                  Abra a biblioteca de quizzes e escolha “Organizar ao vivo”.
+                </p>
               </div>
             )}
 
@@ -240,12 +111,8 @@ export function ManagementPage() {
               {activeRooms.map((room) => (
                 <li key={room.id}>
                   <div className="room-library-summary">
-                    <span
-                      className={`room-status room-status-${room.presentationStatus}`}
-                    >
-                      {room.presentationStatus === "active"
-                        ? "Em apresentação"
-                        : "Sala de espera"}
+                    <span className="room-status">
+                      {ROOM_PHASE_LABELS[room.phase]}
                     </span>
                     <strong className="room-library-name">
                       {room.name ?? `Sala ${room.id}`}
@@ -257,65 +124,27 @@ export function ManagementPage() {
 
                   <div className="room-library-actions">
                     <Link
-                      className="secondary-button compact-button"
+                      className="primary-button compact-button"
                       to={`/admin/room/${room.id}`}
                     >
-                      Gerenciar
+                      Gerenciar ao vivo
                     </Link>
-                    <button
-                      type="button"
-                      className="primary-button compact-button"
-                      disabled={processingRoomId === room.id}
-                      onClick={() => void handlePresentWaitingRoom(room.id)}
+                    <Link
+                      className="secondary-button compact-button"
+                      to={`/?room=${room.id}`}
                     >
-                      Apresentar
-                    </button>
-                    {room.presentationStatus === "active" &&
-                      roomPendingClosure !== room.id && (
-                        <button
-                          type="button"
-                          className="danger-button compact-button"
-                          onClick={() => setRoomPendingClosure(room.id)}
-                        >
-                          Encerrar
-                        </button>
-                      )}
+                      Abrir apresentação
+                    </Link>
                     <button
                       type="button"
                       className="secondary-button compact-button"
                       disabled={processingRoomId === room.id}
                       onClick={() => void handleArchiveWaitingRoom(room.id)}
                     >
-                      Arquivar
+                      {processingRoomId === room.id
+                        ? "Arquivando..."
+                        : "Arquivar"}
                     </button>
-
-                    {roomPendingClosure === room.id && (
-                      <div className="room-closure-confirmation">
-                        <span>
-                          Confirme para finalizar somente esta apresentação.
-                        </span>
-                        <div>
-                          <button
-                            type="button"
-                            className="danger-button compact-button"
-                            disabled={processingRoomId === room.id}
-                            onClick={() => void handleEndWaitingRoom(room.id)}
-                          >
-                            {processingRoomId === room.id
-                              ? "Encerrando..."
-                              : "Confirmar encerramento"}
-                          </button>
-                          <button
-                            type="button"
-                            className="secondary-button compact-button"
-                            disabled={processingRoomId === room.id}
-                            onClick={() => setRoomPendingClosure(null)}
-                          >
-                            Manter apresentação
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </li>
               ))}

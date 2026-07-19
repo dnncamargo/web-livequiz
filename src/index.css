@@ -928,6 +928,21 @@ a:hover {
   gap: 24px;
 }
 
+.presentation-question-metrics {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.question-points {
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #21153d;
+  background: #ffe25b;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
 .question-timer {
   color: #ffe25b;
   font-size: clamp(1.8rem, 4vw, 3rem);
@@ -957,6 +972,46 @@ a:hover {
 }
 
 .presentation-correct-answer strong {
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.presentation-live-control,
+.presentation-paused {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 22px 0 0;
+  padding: 14px 18px;
+  border: 1px solid rgb(85 230 165 / 45%);
+  border-radius: 18px;
+  background: rgb(85 230 165 / 10%);
+}
+
+.presentation-live-control > span {
+  color: #cbffe7;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.presentation-live-control .primary-button {
+  min-width: 190px;
+}
+
+.presentation-auto-control {
+  margin-top: 12px;
+  color: rgb(255 255 255 / 72%);
+  font-weight: 800;
+}
+
+.presentation-paused {
+  min-height: 280px;
+  flex-direction: column;
+}
+
+.presentation-paused strong {
   font-size: clamp(2rem, 5vw, 4rem);
 }
 
@@ -1103,6 +1158,67 @@ a:hover {
   gap: 12px;
   margin: 0;
   padding: 16px;
+}
+
+.room-live-actions {
+  display: grid;
+  gap: 16px;
+  text-align: left;
+}
+
+.room-live-actions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.room-live-actions-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+}
+
+.room-flow-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room-flow-steps li {
+  padding: 6px 9px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  color: rgb(255 255 255 / 58%);
+  background: rgb(255 255 255 / 5%);
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.room-flow-steps .room-flow-step-complete {
+  color: #cbffe7;
+  border-color: rgb(85 230 165 / 38%);
+}
+
+.room-flow-steps .room-flow-step-current {
+  color: #21153d;
+  border-color: #ffe25b;
+  background: #ffe25b;
+}
+
+.room-live-actions-body {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+.room-live-actions .room-action-message,
+.room-live-actions .room-closure-confirmation {
+  width: 100%;
 }
 
 .room-actions-heading {
@@ -1516,6 +1632,10 @@ a:hover {
   .room-lifecycle-card .room-danger-zone {
     grid-template-columns: auto minmax(280px, 1fr) auto;
   }
+
+  .room-live-actions-body {
+    grid-template-columns: minmax(280px, 1fr) auto;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1591,6 +1711,18 @@ a:hover {
     grid-template-columns: 1fr;
   }
 
+  .room-live-actions-header,
+  .room-live-actions-body,
+  .presentation-live-control {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .room-flow-steps {
+    flex-wrap: wrap;
+  }
+
   .room-quiz-association label,
   .room-action-message,
   .room-lifecycle-card .room-closure-confirmation {
@@ -1645,6 +1777,10 @@ a:hover {
   .presentation-question-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .presentation-question-metrics {
+    justify-content: space-between;
   }
 
   .presentation-room-code {

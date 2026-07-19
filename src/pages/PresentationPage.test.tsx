@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { PresentationPage } from "./PresentationPage";
@@ -9,6 +10,10 @@ import type { PublicWaitingRoom } from "../shared/waiting-room";
 
 const presentationMock = vi.hoisted(() => ({
   gameId: "",
+  isAdministrator: true,
+  user: { uid: "administrador-1", getIdToken: vi.fn() },
+  advanceWaitingRoomGame: vi.fn(),
+  presentWaitingRoom: vi.fn(),
   state: {
     room: {
       id: "ABC234",
@@ -34,13 +39,43 @@ vi.mock("../features/live-game/use-public-waiting-room", () => ({
   },
 }));
 
+vi.mock("../contexts/auth-context", () => ({
+  useAuth: () => ({
+    user: presentationMock.isAdministrator ? presentationMock.user : null,
+    isAdministrator: presentationMock.isAdministrator,
+  }),
+}));
+
+vi.mock("../features/live-game/waiting-room", () => ({
+  WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
+  advanceWaitingRoomGame: presentationMock.advanceWaitingRoomGame,
+  presentWaitingRoom: presentationMock.presentWaitingRoom,
+}));
+
 describe("PresentationPage", () => {
   beforeEach(() => {
+    presentationMock.isAdministrator = true;
+    presentationMock.advanceWaitingRoomGame.mockReset().mockResolvedValue({
+      id: "ABC234",
+      name: "Quiz de Ciências",
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+      phase: "countdown",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 1,
+      totalQuestions: 1,
+      phaseTiming: { startedAt: Date.now(), durationMs: 3_000 },
+    });
+    presentationMock.presentWaitingRoom.mockReset().mockResolvedValue({});
     presentationMock.state.room = {
       id: "ABC234",
       name: "Quiz de Ciências",
       phase: "waiting",
       presentationStatus: "active",
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
       createdAt: 1_000,
       participantCount: 2,
       participants: [
@@ -67,6 +102,67 @@ describe("PresentationPage", () => {
     expect(screen.getByText("Cometa")).toBeInTheDocument();
     expect(screen.getByText("🦊")).toBeInTheDocument();
     expect(screen.getByText("🚀")).toBeInTheDocument();
+  });
+
+  it("inicia o quiz somente pelo controle autenticado da apresentação", async () => {
+    const browserUser = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Iniciar quiz" }),
+    );
+
+    expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+      presentationMock.user,
+      { gameId: "ABC234", action: "advance-game" },
+    );
+    expect(
+      await screen.findByLabelText("Contagem regressiva"),
+    ).toBeInTheDocument();
+  });
+
+  it("mantém a apresentação pública sem controles administrativos", () => {
+    presentationMock.isAdministrator = false;
+
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Iniciar quiz" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Aguardando participantes")).toBeInTheDocument();
+  });
+
+  it("exibe automaticamente a pergunta ao terminar a contagem", async () => {
+    presentationMock.state.room = {
+      id: "ABC234",
+      name: "Quiz de Ciências",
+      quizId: "quiz-1",
+      phase: "countdown",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 1,
+      totalQuestions: 1,
+      phaseTiming: { startedAt: Date.now() - 4_000, durationMs: 3_000 },
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledOnce();
+    });
   });
 
   it("mostra a pergunta sem antecipar a resposta correta", () => {
@@ -100,6 +196,7 @@ describe("PresentationPage", () => {
     );
 
     expect(screen.getByText("Qual é a capital do Brasil?")).toBeInTheDocument();
+    expect(screen.getByText("1000 pontos")).toBeInTheDocument();
     expect(screen.queryByText("Brasília")).not.toBeInTheDocument();
     expect(screen.getByText("Pergunta 1 de 1")).toBeInTheDocument();
   });

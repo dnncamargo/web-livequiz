@@ -54,11 +54,9 @@ const managedRoomHookMock = vi.hoisted(() => ({
   },
   gameId: "",
   refreshRevision: "" as string | number,
-  advanceWaitingRoomGame: vi.fn(),
   archiveWaitingRoom: vi.fn(),
   associateWaitingRoomQuiz: vi.fn(),
   endWaitingRoom: vi.fn(),
-  presentWaitingRoom: vi.fn(),
   removeWaitingRoomParticipant: vi.fn(),
 }));
 
@@ -104,11 +102,9 @@ vi.mock("../features/live-game/use-managed-waiting-room", () => ({
 
 vi.mock("../features/live-game/waiting-room", () => ({
   WaitingRoomRequestError: class WaitingRoomRequestError extends Error {},
-  advanceWaitingRoomGame: managedRoomHookMock.advanceWaitingRoomGame,
   archiveWaitingRoom: managedRoomHookMock.archiveWaitingRoom,
   associateWaitingRoomQuiz: managedRoomHookMock.associateWaitingRoomQuiz,
   endWaitingRoom: managedRoomHookMock.endWaitingRoom,
-  presentWaitingRoom: managedRoomHookMock.presentWaitingRoom,
   removeWaitingRoomParticipant:
     managedRoomHookMock.removeWaitingRoomParticipant,
 }));
@@ -153,16 +149,6 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.gameId = "";
     managedRoomHookMock.refreshRevision = "";
     managedRoomHookMock.archiveWaitingRoom.mockReset().mockResolvedValue({});
-    managedRoomHookMock.advanceWaitingRoomGame.mockReset().mockResolvedValue(
-      buildRoom({
-        phase: "countdown",
-        presentationStatus: "active",
-        quizId: "quiz-1",
-        quizTitle: "Ciências publicadas",
-        questionNumber: 1,
-        totalQuestions: 1,
-      }),
-    );
     managedRoomHookMock.associateWaitingRoomQuiz.mockReset().mockResolvedValue(
       buildRoom({
         quizId: "quiz-1",
@@ -172,9 +158,6 @@ describe("WaitingRoomPage", () => {
     managedRoomHookMock.endWaitingRoom
       .mockReset()
       .mockResolvedValue(buildRoom({ phase: "finished" }));
-    managedRoomHookMock.presentWaitingRoom
-      .mockReset()
-      .mockResolvedValue(buildRoom({ phase: "waiting" }));
     managedRoomHookMock.removeWaitingRoomParticipant
       .mockReset()
       .mockResolvedValue(null);
@@ -293,17 +276,15 @@ describe("WaitingRoomPage", () => {
     expect(screen.getByText("Quiz de Ciências")).toBeInTheDocument();
   });
 
-  it("apresenta sem confirmação", async () => {
+  it("abre a apresentação sem iniciar o quiz", async () => {
     const browserUser = userEvent.setup();
     roomHookMock.state.room = buildRoom({ presentationStatus: "inactive" });
     renderWaitingRoom();
 
-    await browserUser.click(screen.getByRole("button", { name: "Apresentar" }));
-
-    expect(managedRoomHookMock.presentWaitingRoom).toHaveBeenCalledWith(
-      expect.objectContaining({ uid: "administrador-1" }),
-      { gameId: "ABC234", action: "present-room" },
+    await browserUser.click(
+      screen.getByRole("button", { name: "Abrir apresentação" }),
     );
+
     expect(await screen.findByText("Apresentação aberta")).toBeInTheDocument();
   });
 
@@ -311,7 +292,9 @@ describe("WaitingRoomPage", () => {
     const browserUser = userEvent.setup();
     renderWaitingRoom();
 
-    await browserUser.click(screen.getByRole("button", { name: "Arquivar" }));
+    await browserUser.click(
+      screen.getByRole("button", { name: "Arquivar sala" }),
+    );
 
     expect(managedRoomHookMock.archiveWaitingRoom).toHaveBeenCalledWith(
       expect.objectContaining({ uid: "administrador-1" }),
@@ -325,11 +308,11 @@ describe("WaitingRoomPage", () => {
     renderWaitingRoom();
 
     await browserUser.selectOptions(
-      screen.getByLabelText("Quiz associado"),
+      screen.getByLabelText("Quiz desta partida"),
       "quiz-1",
     );
     await browserUser.click(
-      screen.getByRole("button", { name: "Salvar associação" }),
+      screen.getByRole("button", { name: "Trocar quiz" }),
     );
 
     expect(managedRoomHookMock.associateWaitingRoomQuiz).toHaveBeenCalledWith(
@@ -345,23 +328,18 @@ describe("WaitingRoomPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("inicia o quiz associado e entra na contagem regressiva", async () => {
-    const browserUser = userEvent.setup();
+  it("deixa o início do quiz exclusivamente na apresentação", () => {
     roomHookMock.state.room = buildRoom({
       quizId: "quiz-1",
       quizTitle: "Ciências publicadas",
     });
     renderWaitingRoom();
 
-    await browserUser.click(
-      screen.getByRole("button", { name: "Iniciar quiz" }),
-    );
-
-    expect(managedRoomHookMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
-      expect.objectContaining({ uid: "administrador-1" }),
-      { gameId: "ABC234", action: "advance-game" },
-    );
-    expect(await screen.findByText("Contagem regressiva")).toBeInTheDocument();
-    expect(screen.getByText("Pergunta 1 de 1")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Iniciar quiz" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Abrir apresentação" }),
+    ).toBeInTheDocument();
   });
 });
