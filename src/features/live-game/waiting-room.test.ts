@@ -321,7 +321,11 @@ describe("cliente da sala de espera", () => {
     await expect(
       advanceWaitingRoomGame(
         { getIdToken },
-        { gameId: "ABC234", action: "advance-game" },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "waiting",
+        },
       ),
     ).resolves.toMatchObject({
       phase: "countdown",
@@ -334,6 +338,7 @@ describe("cliente da sala de espera", () => {
         body: JSON.stringify({
           gameId: "ABC234",
           action: "advance-game",
+          expectedPhase: "waiting",
         }),
       }),
     );

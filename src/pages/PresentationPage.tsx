@@ -8,7 +8,10 @@ import {
   presentWaitingRoom,
   WaitingRoomRequestError,
 } from "../features/live-game/waiting-room";
-import type { PublicWaitingRoom } from "../shared/waiting-room";
+import type {
+  AdvanceWaitingRoomGameRequest,
+  PublicWaitingRoom,
+} from "../shared/waiting-room";
 import { waitingRoomCodeSchema } from "../shared/waiting-room";
 
 function QuestionProgress({ room }: { room: PublicWaitingRoom }) {
@@ -36,6 +39,12 @@ function getGameControlLabel(room: PublicWaitingRoom): string | null {
     default:
       return null;
   }
+}
+
+function isAdvanceablePhase(
+  phase: PublicWaitingRoom["phase"],
+): phase is AdvanceWaitingRoomGameRequest["expectedPhase"] {
+  return ["waiting", "countdown", "question", "revealing"].includes(phase);
 }
 
 function PresentationPhase({ room }: { room: PublicWaitingRoom }) {
@@ -175,50 +184,67 @@ export function PresentationPage() {
   const presentationStatus =
     presentationStatusOverride ?? room?.presentationStatus ?? "inactive";
   const canControlGame = Boolean(user && isAdministrator);
+  const roomPhase = room?.phase;
+  const phaseStartedAt = room?.phaseTiming?.startedAt;
+  const phaseDurationMs = room?.phaseTiming?.durationMs;
 
-  const handleAdvanceGame = useCallback(async () => {
-    if (!user || !isAdministrator || !gameId) {
-      return;
-    }
+  const handleAdvanceGame = useCallback(
+    async (expectedPhase: AdvanceWaitingRoomGameRequest["expectedPhase"]) => {
+      if (!user || !isAdministrator || !gameId) {
+        return;
+      }
 
-    setAdvancingGame(true);
-    setControlError("");
+      setAdvancingGame(true);
+      setControlError("");
 
-    try {
-      const updatedRoom = await advanceWaitingRoomGame(user, {
-        gameId,
-        action: "advance-game",
-      });
-      setRoomOverride(updatedRoom);
-      setPresentationStatusOverride(updatedRoom.presentationStatus ?? null);
-    } catch (error) {
-      console.error("Erro ao controlar quiz pela apresentação:", error);
-      setControlError(
-        error instanceof WaitingRoomRequestError
-          ? error.message
-          : "Não foi possível avançar o quiz.",
-      );
-    } finally {
-      setAdvancingGame(false);
-    }
-  }, [gameId, isAdministrator, user]);
+      try {
+        const updatedRoom = await advanceWaitingRoomGame(user, {
+          gameId,
+          action: "advance-game",
+          expectedPhase,
+        });
+        setRoomOverride(updatedRoom);
+        setPresentationStatusOverride(updatedRoom.presentationStatus ?? null);
+      } catch (error) {
+        console.error("Erro ao controlar quiz pela apresentação:", error);
+        setControlError(
+          error instanceof WaitingRoomRequestError
+            ? error.message
+            : "Não foi possível avançar o quiz.",
+        );
+      } finally {
+        setAdvancingGame(false);
+      }
+    },
+    [gameId, isAdministrator, user],
+  );
 
   useEffect(() => {
-    if (!canControlGame || !room?.phaseTiming || room.phase !== "countdown") {
+    if (
+      !canControlGame ||
+      roomPhase !== "countdown" ||
+      phaseStartedAt === undefined ||
+      phaseDurationMs === undefined
+    ) {
       return;
     }
 
-    const phaseEndsAt =
-      room.phaseTiming.startedAt + room.phaseTiming.durationMs;
+    const phaseEndsAt = phaseStartedAt + phaseDurationMs;
     const timeoutId = globalThis.setTimeout(
       () => {
-        void handleAdvanceGame();
+        void handleAdvanceGame("countdown");
       },
       Math.max(0, phaseEndsAt - Date.now()),
     );
 
     return () => globalThis.clearTimeout(timeoutId);
-  }, [canControlGame, handleAdvanceGame, room]);
+  }, [
+    canControlGame,
+    handleAdvanceGame,
+    phaseDurationMs,
+    phaseStartedAt,
+    roomPhase,
+  ]);
 
   async function handleResumePresentation() {
     if (!user || !isAdministrator || !gameId) {
@@ -303,7 +329,11 @@ export function PresentationPage() {
                   disabled={
                     advancingGame || (room.phase === "waiting" && !room.quizId)
                   }
-                  onClick={() => void handleAdvanceGame()}
+                  onClick={() => {
+                    if (isAdvanceablePhase(room.phase)) {
+                      void handleAdvanceGame(room.phase);
+                    }
+                  }}
                 >
                   {advancingGame ? "Avançando..." : controlLabel}
                 </button>
@@ -348,7 +378,7 @@ export function PresentationPage() {
                 type="button"
                 className="secondary-button"
                 disabled={advancingGame}
-                onClick={() => void handleAdvanceGame()}
+                onClick={() => void handleAdvanceGame("countdown")}
               >
                 Exibir pergunta agora
               </button>

@@ -398,8 +398,14 @@ export async function advanceWaitingRoomGame(
     );
   }
 
-  const changedAt = now();
   const phase = roomResult.data.phase;
+
+  if (phase !== parsedInput.expectedPhase) {
+    return buildManagedWaitingRoom(ownerId, parsedInput.gameId, roomResult.data)
+      .room;
+  }
+
+  const changedAt = now();
   let privateFields: Record<string, unknown>;
   let publicFields: Record<string, unknown>;
 

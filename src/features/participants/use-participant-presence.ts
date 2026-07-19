@@ -19,6 +19,22 @@ const IDLE_PRESENCE_STATE: ParticipantPresenceState = {
   error: null,
 };
 
+function getPresenceErrorMessage(error: unknown): string {
+  const code =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+      ? error.code.toLowerCase()
+      : "";
+
+  if (code.includes("permission")) {
+    return "As regras do Realtime Database recusaram a atualização de presença. Avise o responsável pela partida.";
+  }
+
+  return "Não foi possível manter sua presença na partida. Verifique sua conexão.";
+}
+
 export function useParticipantPresence(
   gameId: string | null,
 ): ParticipantPresenceState {
@@ -46,13 +62,12 @@ export function useParticipantPresence(
               setState({ gameId, status, error: null });
             }
           },
-          onError: () => {
+          onError: (error) => {
             if (active) {
               setState({
                 gameId,
                 status: "error",
-                error:
-                  "Não foi possível manter sua presença na partida. Verifique sua conexão.",
+                error: getPresenceErrorMessage(error),
               });
             }
           },

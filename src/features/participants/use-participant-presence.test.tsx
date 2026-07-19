@@ -75,4 +75,17 @@ describe("useParticipantPresence", () => {
     expect(result.current.status).toBe("idle");
     expect(presenceMocks.startParticipantPresence).not.toHaveBeenCalled();
   });
+
+  it("explica quando as regras recusam a atualização de presença", () => {
+    const { result } = renderHook(() => useParticipantPresence("sala-1"));
+
+    act(() => {
+      presenceMocks.callbacks?.onError?.({ code: "PERMISSION_DENIED" });
+    });
+
+    expect(result.current).toMatchObject({
+      status: "error",
+      error: expect.stringContaining("regras do Realtime Database"),
+    });
+  });
 });

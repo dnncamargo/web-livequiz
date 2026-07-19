@@ -185,6 +185,7 @@ export const advanceWaitingRoomGameRequestSchema = z
   .object({
     gameId: waitingRoomCodeSchema,
     action: z.literal("advance-game"),
+    expectedPhase: z.enum(["waiting", "countdown", "question", "revealing"]),
   })
   .strict();
 

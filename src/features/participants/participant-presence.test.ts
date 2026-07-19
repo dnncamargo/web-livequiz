@@ -20,6 +20,7 @@ const databaseMocks = vi.hoisted(() => ({
   onDisconnect: vi.fn(),
   disconnectUpdate: vi.fn(),
   disconnectCancel: vi.fn(),
+  get: vi.fn(),
   set: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock("firebase/database", () => ({
   push: databaseMocks.push,
   onValue: databaseMocks.onValue,
   onDisconnect: databaseMocks.onDisconnect,
+  get: databaseMocks.get,
   set: databaseMocks.set,
   update: databaseMocks.update,
   remove: databaseMocks.remove,
@@ -75,6 +77,7 @@ describe("presença do participante", () => {
       update: databaseMocks.disconnectUpdate,
       cancel: databaseMocks.disconnectCancel,
     });
+    databaseMocks.get.mockReset().mockResolvedValue({ exists: () => false });
     databaseMocks.set.mockReset().mockResolvedValue(undefined);
     databaseMocks.update.mockReset().mockResolvedValue(undefined);
     databaseMocks.remove.mockReset().mockResolvedValue(undefined);
@@ -122,6 +125,10 @@ describe("presença do participante", () => {
       },
     );
 
+    databaseMocks.get
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({ exists: () => true });
+
     emitConnectionState(true);
     await vi.waitFor(() => expect(session.getStatus()).toBe("connected"));
 
@@ -132,6 +139,11 @@ describe("presença do participante", () => {
     expect(session.getStatus()).toBe("reconnecting");
     await vi.waitFor(() => expect(session.getStatus()).toBe("connected"));
     expect(statuses).toContain("reconnecting");
+    expect(databaseMocks.set).toHaveBeenCalledOnce();
+    expect(databaseMocks.update).toHaveBeenCalledWith(
+      databaseMocks.connectionReferences[0],
+      { lastSeenAt: { ".sv": "timestamp" } },
+    );
 
     await session.stop();
   });

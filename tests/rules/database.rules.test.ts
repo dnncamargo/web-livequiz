@@ -126,29 +126,33 @@ describe("regras do Realtime Database", () => {
     );
   });
 
-  it("mantém a presença durante uma pergunta ativa", async () => {
-    await seedParticipant();
-    await testEnvironment.withSecurityRulesDisabled(async (context) => {
-      await set(
-        ref(context.database(databaseUrl), "liveGames/sala-1/phase"),
-        "question",
+  it.each(["countdown", "question", "revealing"])(
+    "mantém a presença durante a fase ativa %s",
+    async (phase) => {
+      await seedParticipant();
+      await testEnvironment.withSecurityRulesDisabled(async (context) => {
+        await set(
+          ref(context.database(databaseUrl), "liveGames/sala-1/phase"),
+          phase,
+        );
+      });
+      const database = participantDatabase("participante-1");
+      const connectionReference = ref(
+        database,
+        `liveGames/sala-1/participants/participante-1/presence/connections/${connectionId}`,
       );
-    });
-    const database = participantDatabase("participante-1");
 
-    await assertSucceeds(
-      set(
-        ref(
-          database,
-          `liveGames/sala-1/participants/participante-1/presence/connections/${connectionId}`,
-        ),
-        {
+      await assertSucceeds(
+        set(connectionReference, {
           connectedAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
-        },
-      ),
-    );
-  });
+        }),
+      );
+      await assertSucceeds(
+        update(connectionReference, { lastSeenAt: serverTimestamp() }),
+      );
+    },
+  );
 
   it("permite que o participante acompanhe somente a própria moderação", async () => {
     await seedParticipant("participante-1");

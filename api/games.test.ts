@@ -245,6 +245,7 @@ describe("/api/games", () => {
         body: JSON.stringify({
           gameId: "ABC234",
           action: "advance-game",
+          expectedPhase: "waiting",
         }),
       }),
     );
@@ -252,7 +253,11 @@ describe("/api/games", () => {
     expect(response.status).toBe(200);
     expect(apiMocks.advanceWaitingRoomGame).toHaveBeenCalledWith(
       "administrador-1",
-      { gameId: "ABC234", action: "advance-game" },
+      {
+        gameId: "ABC234",
+        action: "advance-game",
+        expectedPhase: "waiting",
+      },
       apiMocks.services,
     );
   });

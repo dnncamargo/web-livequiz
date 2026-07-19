@@ -1,4 +1,5 @@
 import {
+  get,
   onDisconnect,
   onValue,
   push,
@@ -118,10 +119,16 @@ export function startParticipantPresence(
       return;
     }
 
-    await set(connectionReference, {
-      connectedAt: serverTimestamp(),
-      lastSeenAt: serverTimestamp(),
-    });
+    const existingConnection = await get(connectionReference);
+
+    if (existingConnection.exists()) {
+      await refreshLastSeenAt();
+    } else {
+      await set(connectionReference, {
+        connectedAt: serverTimestamp(),
+        lastSeenAt: serverTimestamp(),
+      });
+    }
 
     if (stopped) {
       await remove(connectionReference);

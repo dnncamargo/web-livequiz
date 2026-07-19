@@ -211,7 +211,11 @@ describe("serviço de sala de espera", () => {
     await expect(
       advanceWaitingRoomGame(
         "administrador-1",
-        { gameId: "ABC234", action: "advance-game" },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "waiting",
+        },
         services,
         () => 3_000,
       ),
@@ -225,7 +229,11 @@ describe("serviço de sala de espera", () => {
     await expect(
       advanceWaitingRoomGame(
         "administrador-1",
-        { gameId: "ABC234", action: "advance-game" },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "countdown",
+        },
         services,
         () => 6_000,
       ),
@@ -249,7 +257,25 @@ describe("serviço de sala de espera", () => {
     await expect(
       advanceWaitingRoomGame(
         "administrador-1",
-        { gameId: "ABC234", action: "advance-game" },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "countdown",
+        },
+        services,
+        () => 7_000,
+      ),
+    ).resolves.toMatchObject({ phase: "question" });
+    expect(services.setWaitingRoomGameState).toHaveBeenCalledTimes(2);
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "question",
+        },
         services,
         () => 9_000,
       ),
@@ -267,7 +293,11 @@ describe("serviço de sala de espera", () => {
     await expect(
       advanceWaitingRoomGame(
         "administrador-1",
-        { gameId: "ABC234", action: "advance-game" },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "revealing",
+        },
         services,
         () => 12_000,
       ),

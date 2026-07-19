@@ -118,7 +118,11 @@ describe("PresentationPage", () => {
 
     expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
       presentationMock.user,
-      { gameId: "ABC234", action: "advance-game" },
+      {
+        gameId: "ABC234",
+        action: "advance-game",
+        expectedPhase: "waiting",
+      },
     );
     expect(
       await screen.findByLabelText("Contagem regressiva"),
@@ -161,7 +165,14 @@ describe("PresentationPage", () => {
     );
 
     await waitFor(() => {
-      expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledOnce();
+      expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+        presentationMock.user,
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "countdown",
+        },
+      );
     });
   });
 
