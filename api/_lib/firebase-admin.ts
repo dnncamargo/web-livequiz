@@ -7,8 +7,20 @@ import {
   DEFAULT_PARTICIPANT_AVATAR,
   participantAvatarSchema,
 } from "../../src/shared/avatar.js";
-import type { PublicWaitingRoomParticipant } from "../../src/shared/waiting-room.js";
-import type { CreateQuizRequest, QuizQuestion } from "../../src/shared/quiz.js";
+import {
+  storedParticipantAnswerSchema,
+  type StoredParticipantAnswer,
+} from "../../src/shared/answer.js";
+import { calculateAnswerPoints } from "../../src/shared/scoring.js";
+import {
+  phaseTimingSchema,
+  type PublicWaitingRoomParticipant,
+} from "../../src/shared/waiting-room.js";
+import {
+  quizQuestionSchema,
+  type CreateQuizRequest,
+  type QuizQuestion,
+} from "../../src/shared/quiz.js";
 
 const ADMIN_APP_NAME = "quizumba-server";
 
@@ -117,6 +129,13 @@ export interface FirebaseAdminServices {
     participantId: string,
     removedAt: number,
   ) => Promise<ParticipantRemovalResult>;
+  submitParticipantAnswer: (
+    gameId: string,
+    participantId: string,
+    questionId: string,
+    selectedOptionIds: string[],
+    answeredAt: number,
+  ) => Promise<ParticipantAnswerPersistenceResult>;
 }
 
 export type ParticipantRegistrationOutcome =
@@ -139,6 +158,35 @@ export interface ParticipantRemovalResult {
   participants?: PublicWaitingRoomParticipant[];
 }
 
+export type ParticipantAnswerPersistenceOutcome =
+  | "accepted"
+  | "already-submitted"
+  | "room-not-found"
+  | "participant-not-found"
+  | "participant-not-eligible"
+  | "question-not-active"
+  | "question-mismatch"
+  | "answer-too-late"
+  | "invalid-option"
+  | "game-state-invalid";
+
+export interface ParticipantAnswerPersistenceResult {
+  outcome: ParticipantAnswerPersistenceOutcome;
+  answer: StoredParticipantAnswer | null;
+  totalScore: number;
+}
+
+interface ParticipantAnswerTransactionInput {
+  participantId: string;
+  questionId: string;
+  selectedOptionIds: string[];
+  answeredAt: number;
+}
+
+export interface ParticipantAnswerTransactionDecision extends ParticipantAnswerPersistenceResult {
+  game: Record<string, unknown> | null;
+}
+
 export type FirebaseAdminConfigurationErrorCode =
   | "firebase-admin-environment-invalid"
   | "firebase-admin-private-key-invalid"
@@ -158,6 +206,139 @@ let cachedServices: FirebaseAdminServices | null = null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function participantAnswerDecision(
+  outcome: ParticipantAnswerPersistenceOutcome,
+  answer: StoredParticipantAnswer | null = null,
+  totalScore = 0,
+  game: Record<string, unknown> | null = null,
+): ParticipantAnswerTransactionDecision {
+  return { outcome, answer, totalScore, game };
+}
+
+export function resolveParticipantAnswerTransaction(
+  value: unknown,
+  input: ParticipantAnswerTransactionInput,
+): ParticipantAnswerTransactionDecision {
+  if (!isRecord(value)) {
+    return participantAnswerDecision("room-not-found");
+  }
+
+  const participants = isRecord(value.participants) ? value.participants : {};
+  const participant = participants[input.participantId];
+
+  if (!isRecord(participant)) {
+    return participantAnswerDecision("participant-not-found");
+  }
+
+  if (
+    participant.moderationStatus !== "waiting-approval" &&
+    participant.moderationStatus !== "approved"
+  ) {
+    return participantAnswerDecision("participant-not-eligible");
+  }
+
+  const questionResult = quizQuestionSchema.safeParse(value.currentQuestion);
+
+  if (!questionResult.success) {
+    return participantAnswerDecision("game-state-invalid");
+  }
+
+  const question = questionResult.data;
+
+  if (question.id !== input.questionId) {
+    return participantAnswerDecision("question-mismatch");
+  }
+
+  const answers = isRecord(value.answers) ? value.answers : {};
+  const questionAnswersValue = answers[input.questionId];
+  const questionAnswers: Record<string, unknown> = isRecord(
+    questionAnswersValue,
+  )
+    ? questionAnswersValue
+    : {};
+  const existingAnswerResult = storedParticipantAnswerSchema.safeParse(
+    questionAnswers[input.participantId],
+  );
+  const participantScores = isRecord(value.participantScores)
+    ? value.participantScores
+    : {};
+  const currentScoreValue = participantScores[input.participantId];
+  const currentScore =
+    typeof currentScoreValue === "number" &&
+    Number.isInteger(currentScoreValue) &&
+    currentScoreValue >= 0
+      ? currentScoreValue
+      : 0;
+
+  if (existingAnswerResult.success) {
+    return participantAnswerDecision(
+      "already-submitted",
+      existingAnswerResult.data,
+      currentScore,
+      value,
+    );
+  }
+
+  if (value.phase !== "question") {
+    return participantAnswerDecision("question-not-active");
+  }
+
+  const timingResult = phaseTimingSchema.safeParse(value.phaseTiming);
+
+  if (!timingResult.success) {
+    return participantAnswerDecision("game-state-invalid");
+  }
+
+  if (
+    input.answeredAt >
+    timingResult.data.startedAt + timingResult.data.durationMs
+  ) {
+    return participantAnswerDecision("answer-too-late");
+  }
+
+  const validOptionIds = new Set(question.options.map(({ id }) => id));
+
+  if (
+    input.selectedOptionIds.length !== 1 ||
+    !validOptionIds.has(input.selectedOptionIds[0] ?? "")
+  ) {
+    return participantAnswerDecision("invalid-option");
+  }
+
+  const isCorrect = input.selectedOptionIds[0] === question.correctOptionIds[0];
+  const pointsAwarded = calculateAnswerPoints({
+    questionPoints: question.points,
+    startedAt: timingResult.data.startedAt,
+    durationMs: timingResult.data.durationMs,
+    answeredAt: input.answeredAt,
+    isCorrect,
+  });
+  const answer = storedParticipantAnswerSchema.parse({
+    questionId: input.questionId,
+    selectedOptionIds: input.selectedOptionIds,
+    answeredAt: input.answeredAt,
+    isCorrect,
+    pointsAwarded,
+  });
+  const totalScore = currentScore + pointsAwarded;
+
+  return participantAnswerDecision("accepted", answer, totalScore, {
+    ...value,
+    answers: {
+      ...answers,
+      [input.questionId]: {
+        ...questionAnswers,
+        [input.participantId]: answer,
+      },
+    },
+    participantScores: {
+      ...participantScores,
+      [input.participantId]: totalScore,
+    },
+    updatedAt: input.answeredAt,
+  });
 }
 
 export function isRestorableParticipant(
@@ -759,6 +940,61 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         participantCount: countRegisteredParticipants(participants),
         participants: getPublicParticipants(participants),
       };
+    },
+    submitParticipantAnswer: async (
+      gameId,
+      participantId,
+      questionId,
+      selectedOptionIds,
+      answeredAt,
+    ) => {
+      const gameReference = database.ref(`liveGames/${gameId}`);
+      const initialSnapshot = await gameReference.get();
+      const initialGame: unknown = initialSnapshot.val();
+      const input = {
+        participantId,
+        questionId,
+        selectedOptionIds,
+        answeredAt,
+      };
+      let decision = resolveParticipantAnswerTransaction(initialGame, input);
+
+      if (decision.outcome !== "accepted") {
+        const { outcome, answer, totalScore } = decision;
+        return { outcome, answer, totalScore };
+      }
+
+      const result = await gameReference.transaction(
+        (currentValue: unknown) => {
+          const transactionGame = isRecord(initialGame)
+            ? resolveParticipantTransactionGame(currentValue, initialGame)
+            : null;
+          decision = resolveParticipantAnswerTransaction(
+            transactionGame,
+            input,
+          );
+
+          if (decision.outcome === "accepted") {
+            return decision.game ?? undefined;
+          }
+
+          if (decision.outcome === "already-submitted") {
+            return transactionGame;
+          }
+
+          return undefined;
+        },
+        undefined,
+        false,
+      );
+
+      if (!result.committed) {
+        const { outcome, answer, totalScore } = decision;
+        return { outcome, answer, totalScore };
+      }
+
+      const { outcome, answer, totalScore } = decision;
+      return { outcome, answer, totalScore };
     },
   };
 

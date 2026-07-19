@@ -13,6 +13,8 @@ import type { PublicWaitingRoom } from "../../shared/waiting-room";
 const joinPanelMocks = vi.hoisted(() => ({
   joinParticipantSession: vi.fn(),
   restoreParticipantSession: vi.fn(),
+  getAnswerStatus: vi.fn(),
+  submitAnswer: vi.fn(),
   presence: { status: "connected" as const, error: null },
   presenceGameId: "" as string | null,
   moderation: {
@@ -40,6 +42,17 @@ vi.mock("./participant-session", async (importOriginal) => {
     ...original,
     joinParticipantSession: joinPanelMocks.joinParticipantSession,
     restoreParticipantSession: joinPanelMocks.restoreParticipantSession,
+  };
+});
+
+vi.mock("./participant-answer", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("./participant-answer")>();
+
+  return {
+    ...original,
+    getAnswerStatus: joinPanelMocks.getAnswerStatus,
+    submitAnswer: joinPanelMocks.submitAnswer,
   };
 });
 
@@ -96,6 +109,12 @@ describe("ParticipantJoinPanel", () => {
     joinPanelMocks.joinParticipantSession
       .mockReset()
       .mockResolvedValue(participant);
+    joinPanelMocks.getAnswerStatus.mockReset().mockResolvedValue(null);
+    joinPanelMocks.submitAnswer.mockReset().mockResolvedValue({
+      questionId: "pergunta-1",
+      selectedOptionIds: ["opcao-a"],
+      answeredAt: 2_000,
+    });
     joinPanelMocks.presenceGameId = "";
     joinPanelMocks.moderation.status = null;
     joinPanelMocks.moderation.error = null;
@@ -245,6 +264,7 @@ describe("ParticipantJoinPanel", () => {
   });
 
   it("apresenta as alternativas da pergunta ativa sem marcar o gabarito", async () => {
+    const browserUser = userEvent.setup();
     joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
     joinPanelMocks.publicRoom.room = {
       id: "ABC234",
@@ -278,7 +298,64 @@ describe("ParticipantJoinPanel", () => {
     expect(screen.getByText("Brasília")).toBeInTheDocument();
     expect(screen.getByText("Salvador")).toBeInTheDocument();
     expect(screen.queryByText("Resposta correta")).not.toBeInTheDocument();
+    expect(screen.queryByText("Você está na sala")).not.toBeInTheDocument();
+    expect(screen.queryByText("Entrar em uma sala")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "triângulo: Brasília" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /alternativa 1/i }),
+    ).not.toBeInTheDocument();
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "triângulo: Brasília" }),
+    );
+
+    expect(joinPanelMocks.submitAnswer).toHaveBeenCalledWith(participantUser, {
+      gameId: "ABC234",
+      questionId: "pergunta-1",
+      selectedOptionIds: ["opcao-a"],
+    });
+    expect(await screen.findByText(/Resposta enviada/)).toBeInTheDocument();
     expect(joinPanelMocks.presenceGameId).toBe("ABC234");
+  });
+
+  it("mostra pontos somente quando a resposta é revelada", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.getAnswerStatus.mockResolvedValue({
+      questionId: "pergunta-1",
+      selectedOptionIds: ["opcao-a"],
+      answeredAt: 2_000,
+      result: { isCorrect: true, pointsAwarded: 900, totalScore: 900 },
+    });
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      phase: "revealing",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 1,
+      questionNumber: 1,
+      totalQuestions: 1,
+      revealedCorrectOptionIds: ["opcao-a"],
+      currentQuestion: {
+        id: "pergunta-1",
+        type: "single-choice",
+        prompt: "Qual é a capital do Brasil?",
+        position: 0,
+        durationMs: 20_000,
+        points: 1_000,
+        options: [
+          { id: "opcao-a", label: "Brasília" },
+          { id: "opcao-b", label: "Salvador" },
+        ],
+      },
+    };
+
+    render(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(await screen.findByText("Resposta correta!")).toBeInTheDocument();
+    expect(screen.getByText("+900 pontos")).toBeInTheDocument();
+    expect(screen.getByText("Total: 900 pontos")).toBeInTheDocument();
   });
 
   it("preenche o código identificado no link da sala", async () => {

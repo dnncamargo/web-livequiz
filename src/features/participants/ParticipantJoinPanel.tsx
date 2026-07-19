@@ -23,6 +23,7 @@ import {
 } from "./participant-session";
 import { useParticipantModerationStatus } from "./use-participant-moderation-status";
 import { useParticipantPresence } from "./use-participant-presence";
+import { ParticipantAnswerPanel } from "./ParticipantAnswerPanel";
 
 interface ParticipantJoinPanelProps {
   user: User;
@@ -49,16 +50,13 @@ const MODERATION_STATUS_LABELS = {
   removed: "Entrada removida",
 } as const;
 
-const PRESENCE_STATUS_LABELS = {
-  idle: "Presença inativa",
-  connecting: "Conectando...",
-  connected: "Conectado",
-  reconnecting: "Reconectando...",
-  "temporarily-disconnected": "Conexão temporariamente interrompida",
-  error: "Falha na presença",
-} as const;
-
-function ParticipantGameState({ room }: { room: PublicWaitingRoom }) {
+function ParticipantGameState({
+  room,
+  user,
+}: {
+  room: PublicWaitingRoom;
+  user: User;
+}) {
   const remainingSeconds = useRemainingPhaseSeconds(room.phaseTiming);
   const questionProgress =
     room.questionNumber && room.totalQuestions
@@ -108,29 +106,12 @@ function ParticipantGameState({ room }: { room: PublicWaitingRoom }) {
             ? "Confira a resposta correta."
             : "Escolha uma alternativa."}
         </p>
-        <ul className="participant-answer-options">
-          {room.currentQuestion.options.map((option, index) => {
-            const correct =
-              revealing &&
-              Boolean(room.revealedCorrectOptionIds?.includes(option.id));
-
-            return (
-              <li
-                key={option.id}
-                className={correct ? "participant-answer-correct" : undefined}
-              >
-                <span aria-hidden="true">{index + 1}</span>
-                <strong>{option.label}</strong>
-                {correct && <small>Resposta correta</small>}
-              </li>
-            );
-          })}
-        </ul>
-        {!revealing && (
-          <small className="participant-answer-note">
-            O envio da resposta será habilitado na próxima etapa.
-          </small>
-        )}
+        <ParticipantAnswerPanel
+          user={user}
+          room={room}
+          question={room.currentQuestion}
+          acceptingAnswers={!revealing && (remainingSeconds ?? 0) > 0}
+        />
       </section>
     );
   }
@@ -265,37 +246,8 @@ export function ParticipantJoinPanel({
   if (participant) {
     return (
       <div className="participant-session" aria-live="polite">
-        <span className="eyebrow">Você está na sala</span>
-        <span className="participant-avatar" aria-hidden="true">
-          {participant.avatar}
-        </span>
-        <strong className="participant-nickname">{participant.nickname}</strong>
-
-        {sessionRoom.room?.name && <p>{sessionRoom.room.name}</p>}
-
-        <div className="participant-session-summary">
-          <div>
-            <span>Código</span>
-            <strong>{participant.gameId}</strong>
-          </div>
-          <div>
-            <span>Situação</span>
-            <strong>
-              {roomEnded
-                ? "Apresentação encerrada"
-                : MODERATION_STATUS_LABELS[
-                    effectiveModerationStatus ?? participant.moderationStatus
-                  ]}
-            </strong>
-          </div>
-          <div>
-            <span>Conexão</span>
-            <strong>{PRESENCE_STATUS_LABELS[presence.status]}</strong>
-          </div>
-        </div>
-
         {sessionRoom.room && !roomEnded && (
-          <ParticipantGameState room={sessionRoom.room} />
+          <ParticipantGameState room={sessionRoom.room} user={user} />
         )}
 
         {presence.error && !roomEnded && (
@@ -328,6 +280,33 @@ export function ParticipantJoinPanel({
           </div>
         )}
 
+        <div className="participant-session-identity">
+          <span className="participant-avatar" aria-hidden="true">
+            {participant.avatar}
+          </span>
+          <div>
+            <strong>{participant.nickname}</strong>
+            {sessionRoom.room?.name && <span>{sessionRoom.room.name}</span>}
+          </div>
+        </div>
+
+        <div className="participant-session-summary">
+          <div>
+            <span>Código</span>
+            <strong>{participant.gameId}</strong>
+          </div>
+          <div>
+            <span>Situação</span>
+            <strong>
+              {roomEnded
+                ? "Apresentação encerrada"
+                : MODERATION_STATUS_LABELS[
+                    effectiveModerationStatus ?? participant.moderationStatus
+                  ]}
+            </strong>
+          </div>
+        </div>
+
         {!roomEnded && effectiveModerationStatus !== "removed" && (
           <button
             type="button"
@@ -343,6 +322,7 @@ export function ParticipantJoinPanel({
 
   return (
     <div className="participant-join-panel">
+      <h1>Entrar em uma sala</h1>
       <p>Digite o código da sala e escolha como você quer aparecer no jogo.</p>
 
       <form className="participant-join-form" onSubmit={submitParticipant}>

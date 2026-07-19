@@ -34,6 +34,7 @@ function createServices(): FirebaseAdminServices {
     getParticipant: vi.fn(),
     publishParticipantSummary: vi.fn(),
     removeParticipant: vi.fn(),
+    submitParticipantAnswer: vi.fn(),
   };
 }
 

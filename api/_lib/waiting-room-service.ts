@@ -447,6 +447,8 @@ export async function advanceWaitingRoomGame(
       currentQuestionIndex: 0,
       currentQuestion: null,
       revealedCorrectOptionIds: null,
+      answers: null,
+      participantScores: null,
       totalQuestions: quiz.questions.length,
       phaseTiming,
     };

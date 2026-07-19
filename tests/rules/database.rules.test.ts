@@ -180,6 +180,30 @@ describe("regras do Realtime Database", () => {
     );
   });
 
+  it("impede que o participante leia respostas privadas ou altere pontuação", async () => {
+    await seedParticipant("participante-1");
+    const database = participantDatabase("participante-1");
+
+    await assertFails(
+      set(ref(database, "liveGames/sala-1/answers/pergunta-1/participante-1"), {
+        questionId: "pergunta-1",
+        selectedOptionIds: ["opcao-a"],
+        answeredAt: Date.now(),
+        isCorrect: true,
+        pointsAwarded: 10_000,
+      }),
+    );
+    await assertFails(
+      set(
+        ref(database, "liveGames/sala-1/participantScores/participante-1"),
+        10_000,
+      ),
+    );
+    await assertFails(
+      get(ref(database, "liveGames/sala-1/answers/pergunta-1/participante-1")),
+    );
+  });
+
   it("bloqueia escrita por outro participante", async () => {
     await seedParticipant("participante-1");
     const attackerDatabase = participantDatabase("participante-2");

@@ -45,6 +45,7 @@ function createServices(): FirebaseAdminServices {
     getParticipant: vi.fn(),
     publishParticipantSummary: vi.fn(),
     removeParticipant: vi.fn(),
+    submitParticipantAnswer: vi.fn(),
   };
 }
 
@@ -225,6 +226,9 @@ describe("serviço de sala de espera", () => {
       questionNumber: 1,
       totalQuestions: 1,
     });
+    expect(
+      vi.mocked(services.setWaitingRoomGameState).mock.calls[0]?.[1],
+    ).toMatchObject({ answers: null, participantScores: null });
 
     await expect(
       advanceWaitingRoomGame(

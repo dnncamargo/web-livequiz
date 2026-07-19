@@ -89,7 +89,6 @@ export function HomePage() {
     <main className="page">
       <section className="card hero participant-entry-card">
         <span className="eyebrow">Quizumba</span>
-        <h1>Entrar em uma sala</h1>
 
         {requestedGameId && !gameIdResult.success && (
           <div className="test-result test-result-error" role="alert">
