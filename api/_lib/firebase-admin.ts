@@ -323,20 +323,44 @@ export function resolveParticipantAnswerTransaction(
     pointsAwarded,
   });
   const totalScore = currentScore + pointsAwarded;
+  const updatedQuestionAnswers = {
+    ...questionAnswers,
+    [input.participantId]: answer,
+  };
+  const activeParticipantIds = Object.entries(participants)
+    .filter(
+      ([, candidate]) =>
+        isRecord(candidate) &&
+        (candidate.moderationStatus === "waiting-approval" ||
+          candidate.moderationStatus === "approved"),
+    )
+    .map(([participantId]) => participantId);
+  const allParticipantsAnswered =
+    activeParticipantIds.length > 0 &&
+    activeParticipantIds.every(
+      (participantId) =>
+        storedParticipantAnswerSchema.safeParse(
+          updatedQuestionAnswers[participantId],
+        ).success,
+    );
 
   return participantAnswerDecision("accepted", answer, totalScore, {
     ...value,
     answers: {
       ...answers,
-      [input.questionId]: {
-        ...questionAnswers,
-        [input.participantId]: answer,
-      },
+      [input.questionId]: updatedQuestionAnswers,
     },
     participantScores: {
       ...participantScores,
       [input.participantId]: totalScore,
     },
+    ...(allParticipantsAnswered
+      ? {
+          phase: "revealing",
+          phaseTiming: null,
+          revealedCorrectOptionIds: question.correctOptionIds,
+        }
+      : {}),
     updatedAt: input.answeredAt,
   });
 }
@@ -958,8 +982,48 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         answeredAt,
       };
       let decision = resolveParticipantAnswerTransaction(initialGame, input);
+      const publishAutomaticReveal = async () => {
+        if (decision.game?.phase !== "revealing") {
+          return;
+        }
+
+        const correctOptionIdsResult = z
+          .array(z.string().min(1).max(128))
+          .length(1)
+          .safeParse(decision.game.revealedCorrectOptionIds);
+
+        if (!correctOptionIdsResult.success) {
+          return;
+        }
+
+        await database.ref(`publicGames/${gameId}`).transaction(
+          (currentValue: unknown) => {
+            if (
+              !isRecord(currentValue) ||
+              currentValue.phase !== "question" ||
+              !isRecord(currentValue.currentQuestion) ||
+              currentValue.currentQuestion.id !== questionId
+            ) {
+              return currentValue ?? undefined;
+            }
+
+            return {
+              ...currentValue,
+              phase: "revealing",
+              phaseTiming: null,
+              revealedCorrectOptionIds: correctOptionIdsResult.data,
+            };
+          },
+          undefined,
+          false,
+        );
+      };
 
       if (decision.outcome !== "accepted") {
+        if (decision.outcome === "already-submitted") {
+          await publishAutomaticReveal();
+        }
+
         const { outcome, answer, totalScore } = decision;
         return { outcome, answer, totalScore };
       }
@@ -993,6 +1057,7 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
         return { outcome, answer, totalScore };
       }
 
+      await publishAutomaticReveal();
       const { outcome, answer, totalScore } = decision;
       return { outcome, answer, totalScore };
     },

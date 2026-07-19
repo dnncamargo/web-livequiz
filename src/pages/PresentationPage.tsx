@@ -222,7 +222,7 @@ export function PresentationPage() {
   useEffect(() => {
     if (
       !canControlGame ||
-      roomPhase !== "countdown" ||
+      (roomPhase !== "countdown" && roomPhase !== "question") ||
       phaseStartedAt === undefined ||
       phaseDurationMs === undefined
     ) {
@@ -232,7 +232,7 @@ export function PresentationPage() {
     const phaseEndsAt = phaseStartedAt + phaseDurationMs;
     const timeoutId = globalThis.setTimeout(
       () => {
-        void handleAdvanceGame("countdown");
+        void handleAdvanceGame(roomPhase);
       },
       Math.max(0, phaseEndsAt - Date.now()),
     );

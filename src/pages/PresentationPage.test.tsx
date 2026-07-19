@@ -176,6 +176,48 @@ describe("PresentationPage", () => {
     });
   });
 
+  it("revela automaticamente a resposta ao terminar o tempo da pergunta", async () => {
+    presentationMock.state.room = {
+      id: "ABC234",
+      phase: "question",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 1,
+      totalQuestions: 1,
+      phaseTiming: { startedAt: Date.now() - 21_000, durationMs: 20_000 },
+      currentQuestion: {
+        id: "pergunta-1",
+        type: "single-choice",
+        prompt: "Qual é a capital do Brasil?",
+        position: 0,
+        durationMs: 20_000,
+        points: 1_000,
+        options: [
+          { id: "opcao-a", label: "Brasília" },
+          { id: "opcao-b", label: "Salvador" },
+        ],
+      },
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+        presentationMock.user,
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "question",
+        },
+      );
+    });
+  });
+
   it("mostra a pergunta sem antecipar a resposta correta", () => {
     presentationMock.state.room = {
       id: "ABC234",

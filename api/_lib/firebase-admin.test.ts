@@ -116,8 +116,50 @@ describe("transação de resposta do participante", () => {
       },
       totalScore: 850,
       game: {
+        phase: "revealing",
+        phaseTiming: null,
+        revealedCorrectOptionIds: ["opcao-a"],
         participantScores: { "participante-1": 850 },
       },
+    });
+  });
+
+  it("aguarda todos os participantes ativos antes da revelação", () => {
+    const gameWithTwoParticipants = {
+      ...activeGame,
+      participants: {
+        ...activeGame.participants,
+        "participante-2": {
+          nickname: "Cometa",
+          moderationStatus: "approved",
+        },
+      },
+    };
+    const firstDecision = resolveParticipantAnswerTransaction(
+      gameWithTwoParticipants,
+      {
+        participantId: "participante-1",
+        questionId: "pergunta-1",
+        selectedOptionIds: ["opcao-a"],
+        answeredAt: 20_000,
+      },
+    );
+
+    expect(firstDecision.game).toMatchObject({ phase: "question" });
+
+    const lastDecision = resolveParticipantAnswerTransaction(
+      firstDecision.game,
+      {
+        participantId: "participante-2",
+        questionId: "pergunta-1",
+        selectedOptionIds: ["opcao-b"],
+        answeredAt: 21_000,
+      },
+    );
+
+    expect(lastDecision.game).toMatchObject({
+      phase: "revealing",
+      revealedCorrectOptionIds: ["opcao-a"],
     });
   });
 
