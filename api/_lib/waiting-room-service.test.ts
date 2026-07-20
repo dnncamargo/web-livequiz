@@ -229,6 +229,11 @@ describe("serviço de sala de espera", () => {
     expect(
       vi.mocked(services.setWaitingRoomGameState).mock.calls[0]?.[1],
     ).toMatchObject({ answers: null, participantScores: null });
+    expect(
+      vi.mocked(services.setWaitingRoomGameState).mock.calls[0]?.[2],
+    ).toMatchObject({
+      phaseTiming: { startedAt: 3_000, durationMs: 5_000 },
+    });
 
     await expect(
       advanceWaitingRoomGame(
@@ -272,6 +277,25 @@ describe("serviço de sala de espera", () => {
     ).resolves.toMatchObject({ phase: "question" });
     expect(services.setWaitingRoomGameState).toHaveBeenCalledTimes(2);
 
+    storedRoom.participants = {
+      "participante-1": {
+        nickname: "Estrela",
+        avatar: "🌟",
+        moderationStatus: "approved",
+        joinedAt: 1_000,
+      },
+      "participante-2": {
+        nickname: "Cometa",
+        avatar: "🚀",
+        moderationStatus: "approved",
+        joinedAt: 2_000,
+      },
+    };
+    storedRoom.participantScores = {
+      "participante-1": 900,
+      "participante-2": 400,
+    };
+
     await expect(
       advanceWaitingRoomGame(
         "administrador-1",
@@ -305,7 +329,132 @@ describe("serviço de sala de espera", () => {
         services,
         () => 12_000,
       ),
+    ).resolves.toMatchObject({
+      phase: "ranking",
+      ranking: [
+        expect.objectContaining({ nickname: "Estrela", score: 900 }),
+        expect.objectContaining({ nickname: "Cometa", score: 400 }),
+      ],
+    });
+
+    expect(
+      vi.mocked(services.setWaitingRoomGameState).mock.calls[3]?.[2],
+    ).toMatchObject({
+      phase: "ranking",
+      ranking: [
+        expect.objectContaining({ nickname: "Estrela", score: 900 }),
+        expect.objectContaining({ nickname: "Cometa", score: 400 }),
+      ],
+    });
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "ranking",
+        },
+        services,
+        () => 13_000,
+      ),
+    ).resolves.toMatchObject({
+      phase: "podium",
+      podium: [
+        expect.objectContaining({ nickname: "Estrela", position: 1 }),
+        expect.objectContaining({ nickname: "Cometa", position: 2 }),
+      ],
+    });
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "podium",
+        },
+        services,
+        () => 14_000,
+      ),
     ).resolves.toMatchObject({ phase: "finished" });
+  });
+
+  it("inicia a contagem da próxima pergunta somente depois do ranking", async () => {
+    const services = createServices();
+    const questions = [
+      {
+        id: "pergunta-1",
+        type: "single-choice" as const,
+        prompt: "Primeira pergunta?",
+        position: 0,
+        durationMs: 20_000,
+        points: 1_000,
+        options: [
+          { id: "opcao-a", label: "A" },
+          { id: "opcao-b", label: "B" },
+        ],
+        correctOptionIds: ["opcao-a"],
+      },
+      {
+        id: "pergunta-2",
+        type: "single-choice" as const,
+        prompt: "Segunda pergunta?",
+        position: 1,
+        durationMs: 20_000,
+        points: 1_000,
+        options: [
+          { id: "opcao-a", label: "A" },
+          { id: "opcao-b", label: "B" },
+        ],
+        correctOptionIds: ["opcao-b"],
+      },
+    ];
+    const storedRoom: Record<string, unknown> = {
+      ownerId: "administrador-1",
+      name: "Turma 8A",
+      phase: "ranking",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      quizId: "quiz-1",
+      quizTitle: "Ciências",
+      quizQuestions: questions,
+      currentQuestionIndex: 0,
+      totalQuestions: 2,
+    };
+    vi.mocked(services.getWaitingRoom).mockImplementation(() =>
+      Promise.resolve(storedRoom),
+    );
+    vi.mocked(services.setWaitingRoomGameState).mockImplementation(
+      (_gameId, privateFields) => {
+        for (const [field, value] of Object.entries(privateFields)) {
+          if (value === null) {
+            delete storedRoom[field];
+          } else {
+            storedRoom[field] = value;
+          }
+        }
+
+        return Promise.resolve();
+      },
+    );
+
+    await expect(
+      advanceWaitingRoomGame(
+        "administrador-1",
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "ranking",
+        },
+        services,
+        () => 20_000,
+      ),
+    ).resolves.toMatchObject({
+      phase: "countdown",
+      questionNumber: 2,
+      phaseTiming: { startedAt: 20_000, durationMs: 5_000 },
+    });
   });
 
   it("gera outro código quando encontra uma colisão", async () => {

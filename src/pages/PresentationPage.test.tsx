@@ -317,6 +317,9 @@ describe("PresentationPage", () => {
     expect(screen.getByText("1000 pontos")).toBeInTheDocument();
     expect(screen.queryByText("Brasília")).not.toBeInTheDocument();
     expect(screen.getByText("Pergunta 1 de 1")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Revelar resposta" }),
+    ).not.toBeInTheDocument();
   });
 
   it("mostra a resposta correta somente durante a revelação", () => {
@@ -351,5 +354,98 @@ describe("PresentationPage", () => {
 
     expect(screen.getByText("Resposta correta")).toBeInTheDocument();
     expect(screen.getByText("Brasília")).toBeInTheDocument();
+  });
+
+  it("mostra o ranking antes de liberar a próxima pergunta", async () => {
+    const browserUser = userEvent.setup();
+    presentationMock.state.room = {
+      id: "ABC234",
+      phase: "ranking",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 1,
+      totalQuestions: 2,
+      ranking: [
+        { position: 1, nickname: "Estrela", avatar: "🌟", score: 900 },
+        { position: 2, nickname: "Cometa", avatar: "🚀", score: 400 },
+      ],
+    };
+    presentationMock.advanceWaitingRoomGame.mockResolvedValueOnce({
+      ...presentationMock.state.room,
+      phase: "countdown",
+      questionNumber: 2,
+      phaseTiming: { startedAt: Date.now(), durationMs: 5_000 },
+      ranking: undefined,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Ranking" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Estrela")).toBeInTheDocument();
+    expect(screen.getByText("900 pontos")).toBeInTheDocument();
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Próxima pergunta" }),
+    );
+
+    expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+      presentationMock.user,
+      {
+        gameId: "ABC234",
+        action: "advance-game",
+        expectedPhase: "ranking",
+      },
+    );
+  });
+
+  it("mostra o pódio antes de encerrar o quiz", async () => {
+    const browserUser = userEvent.setup();
+    presentationMock.state.room = {
+      id: "ABC234",
+      phase: "podium",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 2,
+      totalQuestions: 2,
+      podium: [
+        { position: 1, nickname: "Estrela", avatar: "🌟", score: 1_800 },
+        { position: 2, nickname: "Cometa", avatar: "🚀", score: 1_200 },
+      ],
+    };
+    presentationMock.advanceWaitingRoomGame.mockResolvedValueOnce({
+      ...presentationMock.state.room,
+      phase: "finished",
+      podium: undefined,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Pódio" })).toBeInTheDocument();
+    expect(screen.getByText("1º")).toBeInTheDocument();
+
+    await browserUser.click(
+      screen.getByRole("button", { name: "Encerrar quiz" }),
+    );
+
+    expect(presentationMock.advanceWaitingRoomGame).toHaveBeenCalledWith(
+      presentationMock.user,
+      {
+        gameId: "ABC234",
+        action: "advance-game",
+        expectedPhase: "podium",
+      },
+    );
   });
 });

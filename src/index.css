@@ -536,7 +536,7 @@ a:hover {
 
 .answer-option-blue .participant-answer-shape,
 .answer-option-amber .participant-answer-shape {
-  font-size: 2.55rem;
+  font-size: 2.9rem;
 }
 
 .answer-option-green {
@@ -1100,6 +1100,60 @@ a:hover {
 
 .presentation-correct-answer strong {
   font-size: clamp(2rem, 5vw, 4rem);
+}
+
+.presentation-ranking,
+.presentation-podium {
+  display: grid;
+  gap: 12px;
+  width: min(900px, 100%);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presentation-ranking li,
+.presentation-podium li {
+  display: grid;
+  grid-template-columns: 64px 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.presentation-podium li:first-child {
+  border-color: rgb(255 226 91 / 70%);
+  background: rgb(255 226 91 / 14%);
+}
+
+.presentation-ranking-position,
+.presentation-ranking-score {
+  color: #ffe25b;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.presentation-ranking-position {
+  font-size: 1.5rem;
+}
+
+.presentation-ranking-avatar {
+  font-size: 2.4rem;
+  text-align: center;
+}
+
+.presentation-ranking-nickname {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.15rem, 2.5vw, 1.8rem);
+  font-weight: 900;
+}
+
+.presentation-ranking-score {
+  font-size: clamp(1rem, 2vw, 1.35rem);
 }
 
 .presentation-live-control,
@@ -1916,6 +1970,17 @@ a:hover {
 
   .presentation-game-state {
     min-height: 360px;
+  }
+
+  .presentation-ranking li,
+  .presentation-podium li {
+    grid-template-columns: 44px 48px minmax(0, 1fr);
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .presentation-ranking-score {
+    grid-column: 2 / -1;
   }
 
   .section-heading,

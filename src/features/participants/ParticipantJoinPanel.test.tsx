@@ -358,6 +358,47 @@ describe("ParticipantJoinPanel", () => {
     expect(screen.getByText("Total: 900 pontos")).toBeInTheDocument();
   });
 
+  it("orienta o participante durante ranking e pódio", async () => {
+    joinPanelMocks.restoreParticipantSession.mockResolvedValue(participant);
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      phase: "ranking",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 1,
+      totalQuestions: 2,
+      ranking: [
+        { position: 1, nickname: "Estrela Azul", avatar: "🦊", score: 900 },
+      ],
+    };
+
+    const { rerender } = render(
+      <ParticipantJoinPanel user={participantUser} />,
+    );
+
+    expect(await screen.findByText("Ranking atualizado")).toBeInTheDocument();
+
+    joinPanelMocks.publicRoom.room = {
+      id: "ABC234",
+      phase: "podium",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 2,
+      questionNumber: 2,
+      totalQuestions: 2,
+      podium: [
+        { position: 1, nickname: "Estrela Azul", avatar: "🦊", score: 1_800 },
+      ],
+    };
+    rerender(<ParticipantJoinPanel user={participantUser} />);
+
+    expect(await screen.findByText("Resultado final")).toBeInTheDocument();
+    expect(
+      screen.getByText("Confira o pódio na apresentação."),
+    ).toBeInTheDocument();
+  });
+
   it("preenche o código identificado no link da sala", async () => {
     render(
       <ParticipantJoinPanel user={participantUser} initialGameId="ABC234" />,

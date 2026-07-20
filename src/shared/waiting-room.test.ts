@@ -56,4 +56,39 @@ describe("projeção pública da sala", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("aceita ranking público sem identificadores internos", () => {
+    const result = publicWaitingRoomSchema.safeParse({
+      id: "ABC234",
+      phase: "ranking",
+      createdAt: 1_000,
+      participantCount: 2,
+      ranking: [
+        { position: 1, nickname: "Estrela", avatar: "🌟", score: 900 },
+        { position: 2, nickname: "Cometa", avatar: "🚀", score: 400 },
+      ],
+      questionNumber: 1,
+      totalQuestions: 2,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.ranking?.[0]).not.toHaveProperty(
+      "participantId",
+    );
+  });
+
+  it("rejeita ranking publicado durante uma pergunta", () => {
+    expect(
+      publicWaitingRoomSchema.safeParse({
+        id: "ABC234",
+        phase: "question",
+        createdAt: 1_000,
+        participantCount: 1,
+        currentQuestion: publicQuestion,
+        ranking: [
+          { position: 1, nickname: "Estrela", avatar: "🌟", score: 900 },
+        ],
+      }).success,
+    ).toBe(false);
+  });
 });

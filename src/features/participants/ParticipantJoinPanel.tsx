@@ -116,6 +116,25 @@ function ParticipantGameState({
     );
   }
 
+  if (room.phase === "ranking") {
+    return (
+      <section className="participant-game-state" aria-live="polite">
+        {questionProgress && <span>{questionProgress}</span>}
+        <strong>Ranking atualizado</strong>
+        <span>Acompanhe a classificação na apresentação.</span>
+      </section>
+    );
+  }
+
+  if (room.phase === "podium") {
+    return (
+      <section className="participant-game-state" aria-live="polite">
+        <strong>Resultado final</strong>
+        <span>Confira o pódio na apresentação.</span>
+      </section>
+    );
+  }
+
   return null;
 }
 

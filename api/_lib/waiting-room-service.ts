@@ -42,16 +42,22 @@ import {
   quizQuestionsSchema,
   type QuizQuestion,
 } from "../../src/shared/quiz.js";
+import {
+  DEFAULT_PARTICIPANT_AVATAR,
+  participantAvatarSchema,
+} from "../../src/shared/avatar.js";
+import { buildPublicRanking } from "../../src/shared/ranking-utils.js";
 import type { FirebaseAdminServices } from "./firebase-admin.js";
 import { HttpError } from "./http-error.js";
 import { getOwnedQuiz, getQuizDetail } from "./quiz-service.js";
 
 const MAX_CODE_GENERATION_ATTEMPTS = 8;
-const QUESTION_COUNTDOWN_DURATION_MS = 3_000;
+const QUESTION_COUNTDOWN_DURATION_MS = 5_000;
 
 const privateParticipantSchema = z
   .object({
     nickname: participantNicknameSchema,
+    avatar: participantAvatarSchema.optional(),
     moderationStatus: participantModerationStatusSchema,
     joinedAt: z.number().int().nonnegative(),
     presence: z
@@ -81,6 +87,9 @@ const privateWaitingRoomSchema = z
       .length(1)
       .optional(),
     totalQuestions: z.number().int().positive().optional(),
+    participantScores: z
+      .record(z.string(), z.number().int().nonnegative())
+      .optional(),
     phaseTiming: z
       .object({
         startedAt: z.number().int().nonnegative(),
@@ -123,6 +132,35 @@ export function generateWaitingRoomCode(
 
 function getRoomName(gameId: string, name?: string): string {
   return name ?? `Sala ${gameId}`;
+}
+
+function getRoomRanking(room: z.infer<typeof privateWaitingRoomSchema>) {
+  const participantScores = room.participantScores ?? {};
+
+  return buildPublicRanking(
+    Object.entries(room.participants ?? {}).flatMap(
+      ([participantId, value]) => {
+        const participantResult = privateParticipantSchema.safeParse(value);
+
+        if (
+          !participantResult.success ||
+          participantResult.data.moderationStatus === "removed"
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            participantId,
+            nickname: participantResult.data.nickname,
+            avatar: participantResult.data.avatar ?? DEFAULT_PARTICIPANT_AVATAR,
+            score: participantScores[participantId] ?? 0,
+            joinedAt: participantResult.data.joinedAt,
+          },
+        ];
+      },
+    ),
+  );
 }
 
 function toPublicQuizQuestion(question: QuizQuestion): PublicQuizQuestion {
@@ -183,6 +221,7 @@ function buildManagedWaitingRoom(
     })
     .filter((participant) => participant !== null)
     .sort((first, second) => first.joinedAt - second.joinedAt);
+  const roomRanking = getRoomRanking(roomResult.data);
 
   return managedWaitingRoomResponseSchema.parse({
     room: {
@@ -206,6 +245,11 @@ function buildManagedWaitingRoom(
           : roomResult.data.currentQuestionIndex + 1,
       totalQuestions: roomResult.data.totalQuestions,
       phaseTiming: roomResult.data.phaseTiming,
+      ranking: roomResult.data.phase === "ranking" ? roomRanking : undefined,
+      podium:
+        roomResult.data.phase === "podium"
+          ? roomRanking.slice(0, 3)
+          : undefined,
     },
     participants,
   });
@@ -451,6 +495,8 @@ export async function advanceWaitingRoomGame(
       participantScores: null,
       totalQuestions: quiz.questions.length,
       phaseTiming,
+      ranking: null,
+      podium: null,
     };
     publicFields = {
       phase: "countdown",
@@ -460,6 +506,8 @@ export async function advanceWaitingRoomGame(
       questionNumber: 1,
       totalQuestions: quiz.questions.length,
       phaseTiming,
+      ranking: null,
+      podium: null,
     };
   } else if (phase === "countdown") {
     const questionIndex = roomResult.data.currentQuestionIndex ?? 0;
@@ -490,6 +538,8 @@ export async function advanceWaitingRoomGame(
       questionNumber: questionIndex + 1,
       totalQuestions: roomResult.data.quizQuestions?.length,
       phaseTiming,
+      ranking: null,
+      podium: null,
     };
   } else if (phase === "question") {
     const question = roomResult.data.currentQuestion;
@@ -513,6 +563,23 @@ export async function advanceWaitingRoomGame(
       phaseTiming: null,
     };
   } else if (phase === "revealing") {
+    const ranking = getRoomRanking(roomResult.data);
+
+    privateFields = {
+      phase: "ranking",
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      phaseTiming: null,
+    };
+    publicFields = {
+      phase: "ranking",
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      phaseTiming: null,
+      ranking,
+      podium: null,
+    };
+  } else if (phase === "ranking") {
     const questions = roomResult.data.quizQuestions ?? [];
     const nextQuestionIndex = (roomResult.data.currentQuestionIndex ?? 0) + 1;
     const hasNextQuestion = Boolean(questions[nextQuestionIndex]);
@@ -536,21 +603,42 @@ export async function advanceWaitingRoomGame(
         questionNumber: nextQuestionIndex + 1,
         totalQuestions: questions.length,
         phaseTiming,
+        ranking: null,
+        podium: null,
       };
     } else {
+      const podium = getRoomRanking(roomResult.data).slice(0, 3);
+
       privateFields = {
-        phase: "finished",
+        phase: "podium",
         currentQuestion: null,
         revealedCorrectOptionIds: null,
         phaseTiming: null,
       };
       publicFields = {
-        phase: "finished",
+        phase: "podium",
         currentQuestion: null,
         revealedCorrectOptionIds: null,
         phaseTiming: null,
+        ranking: null,
+        podium,
       };
     }
+  } else if (phase === "podium") {
+    privateFields = {
+      phase: "finished",
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      phaseTiming: null,
+    };
+    publicFields = {
+      phase: "finished",
+      currentQuestion: null,
+      revealedCorrectOptionIds: null,
+      phaseTiming: null,
+      ranking: null,
+      podium: null,
+    };
   } else {
     throw new HttpError(
       409,

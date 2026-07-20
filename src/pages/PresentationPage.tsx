@@ -10,6 +10,7 @@ import {
 } from "../features/live-game/waiting-room";
 import type {
   AdvanceWaitingRoomGameRequest,
+  PublicRankingEntry,
   PublicWaitingRoom,
 } from "../shared/waiting-room";
 import { waitingRoomCodeSchema } from "../shared/waiting-room";
@@ -30,12 +31,14 @@ function getGameControlLabel(room: PublicWaitingRoom): string | null {
   switch (room.phase) {
     case "waiting":
       return "Iniciar quiz";
-    case "question":
-      return "Revelar resposta";
     case "revealing":
+      return "Ver ranking";
+    case "ranking":
       return room.questionNumber === room.totalQuestions
-        ? "Finalizar quiz"
+        ? "Ver pódio"
         : "Próxima pergunta";
+    case "podium":
+      return "Encerrar quiz";
     default:
       return null;
   }
@@ -44,7 +47,14 @@ function getGameControlLabel(room: PublicWaitingRoom): string | null {
 function isAdvanceablePhase(
   phase: PublicWaitingRoom["phase"],
 ): phase is AdvanceWaitingRoomGameRequest["expectedPhase"] {
-  return ["waiting", "countdown", "question", "revealing"].includes(phase);
+  return [
+    "waiting",
+    "countdown",
+    "question",
+    "revealing",
+    "ranking",
+    "podium",
+  ].includes(phase);
 }
 
 interface PendingRoomTransition {
@@ -64,6 +74,39 @@ function resolvePresentationRoom(
   }
 
   return synchronizedRoom;
+}
+
+function PresentationRanking({
+  entries,
+  podium = false,
+}: {
+  entries: PublicRankingEntry[];
+  podium?: boolean;
+}) {
+  if (entries.length === 0) {
+    return <p>Nenhum participante pontuou nesta partida.</p>;
+  }
+
+  return (
+    <ol className={podium ? "presentation-podium" : "presentation-ranking"}>
+      {entries.map((entry, index) => (
+        <li key={`${entry.nickname}-${index}`}>
+          <strong className="presentation-ranking-position">
+            {entry.position}º
+          </strong>
+          <span className="presentation-ranking-avatar" aria-hidden="true">
+            {entry.avatar}
+          </span>
+          <span className="presentation-ranking-nickname">
+            {entry.nickname}
+          </span>
+          <strong className="presentation-ranking-score">
+            {entry.score} pontos
+          </strong>
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 function PresentationPhase({ room }: { room: PublicWaitingRoom }) {
@@ -156,6 +199,27 @@ function PresentationPhase({ room }: { room: PublicWaitingRoom }) {
               "Resposta indisponível"}
           </strong>
         </div>
+      </section>
+    );
+  }
+
+  if (room.phase === "ranking") {
+    return (
+      <section className="presentation-game-state" aria-live="polite">
+        <QuestionProgress room={room} />
+        <span className="eyebrow">Classificação</span>
+        <h2>Ranking</h2>
+        <PresentationRanking entries={room.ranking ?? []} />
+      </section>
+    );
+  }
+
+  if (room.phase === "podium") {
+    return (
+      <section className="presentation-game-state" aria-live="polite">
+        <span className="eyebrow">Resultado final</span>
+        <h2>Pódio</h2>
+        <PresentationRanking entries={room.podium ?? []} podium />
       </section>
     );
   }

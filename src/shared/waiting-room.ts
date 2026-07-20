@@ -60,6 +60,15 @@ export const publicWaitingRoomParticipantSchema = z
   })
   .strict();
 
+export const publicRankingEntrySchema = z
+  .object({
+    position: z.number().int().positive(),
+    nickname: normalizedWaitingRoomNameSchema.max(20),
+    avatar: participantAvatarSchema,
+    score: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const publicWaitingRoomSchema = z
   .object({
     id: waitingRoomCodeSchema,
@@ -79,6 +88,8 @@ export const publicWaitingRoomSchema = z
     questionNumber: z.number().int().positive().optional(),
     totalQuestions: z.number().int().positive().optional(),
     phaseTiming: phaseTimingSchema.optional(),
+    ranking: z.array(publicRankingEntrySchema).max(1_000).optional(),
+    podium: z.array(publicRankingEntrySchema).max(3).optional(),
   })
   .strict()
   .superRefine((room, context) => {
@@ -106,6 +117,22 @@ export const publicWaitingRoomSchema = z
         code: "custom",
         path: ["revealedCorrectOptionIds"],
         message: "A fase de revelação exige o gabarito público.",
+      });
+    }
+
+    if (room.ranking && room.phase !== "ranking") {
+      context.addIssue({
+        code: "custom",
+        path: ["ranking"],
+        message: "O ranking só pode ser publicado durante sua própria fase.",
+      });
+    }
+
+    if (room.podium && room.phase !== "podium") {
+      context.addIssue({
+        code: "custom",
+        path: ["podium"],
+        message: "O pódio só pode ser publicado durante sua própria fase.",
       });
     }
   });
@@ -185,7 +212,14 @@ export const advanceWaitingRoomGameRequestSchema = z
   .object({
     gameId: waitingRoomCodeSchema,
     action: z.literal("advance-game"),
-    expectedPhase: z.enum(["waiting", "countdown", "question", "revealing"]),
+    expectedPhase: z.enum([
+      "waiting",
+      "countdown",
+      "question",
+      "revealing",
+      "ranking",
+      "podium",
+    ]),
   })
   .strict();
 
@@ -216,6 +250,7 @@ export type PublicWaitingRoom = z.infer<typeof publicWaitingRoomSchema>;
 export type PublicWaitingRoomParticipant = z.infer<
   typeof publicWaitingRoomParticipantSchema
 >;
+export type PublicRankingEntry = z.infer<typeof publicRankingEntrySchema>;
 export type CreateWaitingRoomRequest = z.infer<
   typeof createWaitingRoomRequestSchema
 >;
