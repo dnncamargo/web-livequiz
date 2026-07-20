@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isRestorableParticipant,
   isSameRestorableParticipant,
+  resolveAutomaticRevealPublicGame,
   resolveParticipantAnswerTransaction,
   resolveParticipantTransactionGame,
 } from "./firebase-admin.js";
@@ -70,6 +71,43 @@ describe("reentrada do participante", () => {
         "🦊",
       ),
     ).toBe(false);
+  });
+});
+
+describe("projeção pública da revelação automática", () => {
+  const publicQuestion = {
+    phase: "question",
+    phaseTiming: { startedAt: 10_000, durationMs: 20_000 },
+    currentQuestion: { id: "pergunta-1", prompt: "Pergunta" },
+  };
+
+  it("revela mesmo quando a primeira tentativa da transação recebe null", () => {
+    expect(
+      resolveAutomaticRevealPublicGame(null, publicQuestion, "pergunta-1", [
+        "opcao-a",
+      ]),
+    ).toMatchObject({
+      phase: "revealing",
+      phaseTiming: null,
+      revealedCorrectOptionIds: ["opcao-a"],
+    });
+  });
+
+  it("não restaura a revelação se a projeção já avançou", () => {
+    const nextQuestion = {
+      ...publicQuestion,
+      phase: "countdown",
+      currentQuestion: null,
+    };
+
+    expect(
+      resolveAutomaticRevealPublicGame(
+        nextQuestion,
+        publicQuestion,
+        "pergunta-1",
+        ["opcao-a"],
+      ),
+    ).toBe(nextQuestion);
   });
 });
 

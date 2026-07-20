@@ -410,6 +410,34 @@ export function resolveParticipantTransactionGame(
   return currentValue === null ? previouslyLoadedGame : null;
 }
 
+export function resolveAutomaticRevealPublicGame(
+  currentValue: unknown,
+  previouslyLoadedGame: Record<string, unknown>,
+  questionId: string,
+  correctOptionIds: string[],
+): Record<string, unknown> | undefined {
+  const publicGame = resolveParticipantTransactionGame(
+    currentValue,
+    previouslyLoadedGame,
+  );
+
+  if (
+    !publicGame ||
+    publicGame.phase !== "question" ||
+    !isRecord(publicGame.currentQuestion) ||
+    publicGame.currentQuestion.id !== questionId
+  ) {
+    return isRecord(currentValue) ? currentValue : undefined;
+  }
+
+  return {
+    ...publicGame,
+    phase: "revealing",
+    phaseTiming: null,
+    revealedCorrectOptionIds: correctOptionIds,
+  };
+}
+
 function normalizeNicknameForComparison(nickname: string): string {
   return nickname.normalize("NFKC").toLocaleLowerCase("pt-BR");
 }
@@ -1009,24 +1037,22 @@ export function getFirebaseAdminServices(): FirebaseAdminServices {
           return;
         }
 
-        await database.ref(`publicGames/${gameId}`).transaction(
-          (currentValue: unknown) => {
-            if (
-              !isRecord(currentValue) ||
-              currentValue.phase !== "question" ||
-              !isRecord(currentValue.currentQuestion) ||
-              currentValue.currentQuestion.id !== questionId
-            ) {
-              return currentValue ?? undefined;
-            }
+        const publicGameReference = database.ref(`publicGames/${gameId}`);
+        const initialPublicGameSnapshot = await publicGameReference.get();
+        const initialPublicGame: unknown = initialPublicGameSnapshot.val();
 
-            return {
-              ...currentValue,
-              phase: "revealing",
-              phaseTiming: null,
-              revealedCorrectOptionIds: correctOptionIdsResult.data,
-            };
-          },
+        if (!isRecord(initialPublicGame)) {
+          return;
+        }
+
+        await publicGameReference.transaction(
+          (currentValue: unknown) =>
+            resolveAutomaticRevealPublicGame(
+              currentValue,
+              initialPublicGame,
+              questionId,
+              correctOptionIdsResult.data,
+            ),
           undefined,
           false,
         );
