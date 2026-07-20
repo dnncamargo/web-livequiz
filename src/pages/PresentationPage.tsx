@@ -47,6 +47,25 @@ function isAdvanceablePhase(
   return ["waiting", "countdown", "question", "revealing"].includes(phase);
 }
 
+interface PendingRoomTransition {
+  expectedPhase: AdvanceWaitingRoomGameRequest["expectedPhase"];
+  room: PublicWaitingRoom;
+}
+
+function resolvePresentationRoom(
+  synchronizedRoom: PublicWaitingRoom | null,
+  pendingTransition: PendingRoomTransition | null,
+): PublicWaitingRoom | null {
+  if (
+    pendingTransition &&
+    synchronizedRoom?.phase === pendingTransition.expectedPhase
+  ) {
+    return pendingTransition.room;
+  }
+
+  return synchronizedRoom;
+}
+
 function PresentationPhase({ room }: { room: PublicWaitingRoom }) {
   const remainingSeconds = useRemainingPhaseSeconds(room.phaseTiming);
 
@@ -165,9 +184,8 @@ export function PresentationPage() {
   const [advancingGame, setAdvancingGame] = useState(false);
   const [resumingPresentation, setResumingPresentation] = useState(false);
   const [controlError, setControlError] = useState("");
-  const [roomOverride, setRoomOverride] = useState<PublicWaitingRoom | null>(
-    null,
-  );
+  const [pendingRoomTransition, setPendingRoomTransition] =
+    useState<PendingRoomTransition | null>(null);
   const [presentationStatusOverride, setPresentationStatusOverride] = useState<
     "inactive" | "active" | null
   >(null);
@@ -177,10 +195,7 @@ export function PresentationPage() {
   const gameId = gameIdResult.success ? gameIdResult.data : "";
   const roomState = usePublicWaitingRoom(gameId);
   const synchronizedRoom = roomState.room;
-  const room =
-    roomOverride && synchronizedRoom?.phase !== roomOverride.phase
-      ? roomOverride
-      : synchronizedRoom;
+  const room = resolvePresentationRoom(synchronizedRoom, pendingRoomTransition);
   const presentationStatus =
     presentationStatusOverride ?? room?.presentationStatus ?? "inactive";
   const canControlGame = Boolean(user && isAdministrator);
@@ -203,7 +218,7 @@ export function PresentationPage() {
           action: "advance-game",
           expectedPhase,
         });
-        setRoomOverride(updatedRoom);
+        setPendingRoomTransition({ expectedPhase, room: updatedRoom });
         setPresentationStatusOverride(updatedRoom.presentationStatus ?? null);
       } catch (error) {
         console.error("Erro ao controlar quiz pela apresentação:", error);
@@ -230,14 +245,22 @@ export function PresentationPage() {
     }
 
     const phaseEndsAt = phaseStartedAt + phaseDurationMs;
-    const timeoutId = globalThis.setTimeout(
-      () => {
-        void handleAdvanceGame(roomPhase);
-      },
-      Math.max(0, phaseEndsAt - Date.now()),
-    );
+    let advanceTimeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
+    const scheduleTimeoutId = globalThis.setTimeout(() => {
+      advanceTimeoutId = globalThis.setTimeout(
+        () => {
+          void handleAdvanceGame(roomPhase);
+        },
+        Math.max(0, phaseEndsAt - Date.now()),
+      );
+    }, 0);
 
-    return () => globalThis.clearTimeout(timeoutId);
+    return () => {
+      globalThis.clearTimeout(scheduleTimeoutId);
+      if (advanceTimeoutId !== undefined) {
+        globalThis.clearTimeout(advanceTimeoutId);
+      }
+    };
   }, [
     canControlGame,
     handleAdvanceGame,
@@ -255,11 +278,10 @@ export function PresentationPage() {
     setControlError("");
 
     try {
-      const updatedRoom = await presentWaitingRoom(user, {
+      await presentWaitingRoom(user, {
         gameId,
         action: "present-room",
       });
-      setRoomOverride(updatedRoom);
       setPresentationStatusOverride("active");
     } catch (error) {
       console.error("Erro ao retomar apresentação:", error);

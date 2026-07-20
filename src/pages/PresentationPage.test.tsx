@@ -218,6 +218,71 @@ describe("PresentationPage", () => {
     });
   });
 
+  it("interrompe o cronômetro da apresentação quando todos responderam", async () => {
+    const currentQuestion = {
+      id: "pergunta-1",
+      type: "single-choice" as const,
+      prompt: "Qual é a capital do Brasil?",
+      position: 0,
+      durationMs: 20_000,
+      points: 1_000,
+      options: [
+        { id: "opcao-a", label: "Brasília" },
+        { id: "opcao-b", label: "Salvador" },
+      ],
+    };
+    presentationMock.state.room = {
+      id: "ABC234",
+      phase: "countdown",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 1,
+      questionNumber: 1,
+      totalQuestions: 1,
+      phaseTiming: { startedAt: Date.now() - 4_000, durationMs: 3_000 },
+    };
+    presentationMock.advanceWaitingRoomGame.mockResolvedValueOnce({
+      ...presentationMock.state.room,
+      phase: "question",
+      phaseTiming: { startedAt: Date.now(), durationMs: 20_000 },
+      currentQuestion,
+    });
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Escolha a alternativa no seu dispositivo."),
+    ).toBeInTheDocument();
+
+    presentationMock.state.room = {
+      id: "ABC234",
+      phase: "revealing",
+      presentationStatus: "active",
+      createdAt: 1_000,
+      participantCount: 1,
+      questionNumber: 1,
+      totalQuestions: 1,
+      currentQuestion,
+      revealedCorrectOptionIds: ["opcao-a"],
+    };
+    rerender(
+      <MemoryRouter initialEntries={["/?room=ABC234"]}>
+        <PresentationPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Resposta correta")).toBeInTheDocument();
+    expect(screen.getByText("Brasília")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Escolha a alternativa no seu dispositivo."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Tempo restante")).not.toBeInTheDocument();
+  });
+
   it("mostra a pergunta sem antecipar a resposta correta", () => {
     presentationMock.state.room = {
       id: "ABC234",
