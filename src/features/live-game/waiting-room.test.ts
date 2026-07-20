@@ -344,6 +344,64 @@ describe("cliente da sala de espera", () => {
     );
   });
 
+  it("recupera o estado sincronizado quando a resposta do avanço é transitória", async () => {
+    const getIdToken = vi.fn().mockResolvedValue("token-administrativo");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            room: {
+              id: "ABC234",
+              phase: "countdown",
+              createdAt: 1_000,
+              participantCount: 2,
+              ranking: [],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            room: {
+              id: "ABC234",
+              phase: "countdown",
+              presentationStatus: "active",
+              createdAt: 1_000,
+              participantCount: 2,
+              questionNumber: 2,
+              totalQuestions: 3,
+              phaseTiming: { startedAt: 5_000, durationMs: 5_000 },
+            },
+            participants: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      advanceWaitingRoomGame(
+        { getIdToken },
+        {
+          gameId: "ABC234",
+          action: "advance-game",
+          expectedPhase: "ranking",
+        },
+      ),
+    ).resolves.toMatchObject({
+      phase: "countdown",
+      questionNumber: 2,
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/games?gameId=ABC234",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
   it("explica quando o Vite devolve a aplicação no lugar da API", async () => {
     vi.stubGlobal(
       "fetch",

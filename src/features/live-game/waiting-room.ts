@@ -176,10 +176,16 @@ export async function advanceWaitingRoomGame(
   const result = waitingRoomMutationResponseSchema.safeParse(payload);
 
   if (!result.success) {
-    throw new WaitingRoomRequestError(
-      "invalid-response",
-      "O servidor retornou dados inválidos ao avançar a partida.",
+    console.error(
+      "A resposta de avanço não corresponde ao estado público esperado:",
+      result.error.issues,
     );
+
+    const synchronizedRoom = await getManagedWaitingRoom(
+      user,
+      parsedInput.gameId,
+    );
+    return synchronizedRoom.room;
   }
 
   return result.data.room;

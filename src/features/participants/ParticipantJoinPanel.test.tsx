@@ -300,9 +300,14 @@ describe("ParticipantJoinPanel", () => {
     expect(screen.queryByText("Resposta correta")).not.toBeInTheDocument();
     expect(screen.queryByText("Você está na sala")).not.toBeInTheDocument();
     expect(screen.queryByText("Entrar em uma sala")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "triângulo: Brasília" }),
-    ).toBeInTheDocument();
+    const answerButton = screen.getByRole("button", {
+      name: "triângulo: Brasília",
+    });
+    expect(answerButton).toBeInTheDocument();
+    expect(answerButton.querySelector("svg")).toHaveAttribute(
+      "viewBox",
+      "0 0 48 48",
+    );
     expect(
       screen.queryByRole("button", { name: /alternativa 1/i }),
     ).not.toBeInTheDocument();

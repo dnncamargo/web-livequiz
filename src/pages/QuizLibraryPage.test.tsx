@@ -74,14 +74,17 @@ describe("QuizLibraryPage", () => {
     const user = userEvent.setup();
     renderQuizLibrary();
 
+    expect(screen.queryByLabelText("Título do quiz")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Criar quiz" }));
     await user.type(screen.getByLabelText("Título do quiz"), "Ciências");
     await user.type(screen.getByLabelText("Descrição"), "Oitavo ano");
-    await user.click(screen.getByRole("button", { name: "Criar quiz" }));
+    await user.click(screen.getByRole("button", { name: "Criar rascunho" }));
 
     expect(pageMocks.createQuizDraft).toHaveBeenCalledWith(pageMocks.user, {
       title: "Ciências",
       description: "Oitavo ano",
     });
+    expect(screen.queryByLabelText("Título do quiz")).not.toBeInTheDocument();
   });
 
   it("exibe os metadados permanentes da biblioteca", () => {

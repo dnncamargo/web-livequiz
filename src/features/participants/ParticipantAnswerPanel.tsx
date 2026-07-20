@@ -11,6 +11,7 @@ import {
   ParticipantAnswerRequestError,
   submitAnswer,
 } from "./participant-answer";
+import { AnswerOptionIcon } from "./AnswerOptionIcon";
 
 interface ParticipantAnswerPanelProps {
   user: User;
@@ -171,7 +172,7 @@ export function ParticipantAnswerPanel({
               onClick={() => void selectOption(option.id)}
             >
               <span className="participant-answer-shape" aria-hidden="true">
-                {visual.shape}
+                <AnswerOptionIcon shape={visual.shape} />
               </span>
               <strong>{option.label}</strong>
               {state.submittingOptionId === option.id && (

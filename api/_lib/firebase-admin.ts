@@ -327,8 +327,8 @@ export function resolveParticipantAnswerTransaction(
     ...questionAnswers,
     [input.participantId]: answer,
   };
-  const presentParticipantIds = Object.entries(participants)
-    .filter(([participantId, candidate]) => {
+  const activeParticipantIds = Object.entries(participants)
+    .filter(([, candidate]) => {
       if (
         !isRecord(candidate) ||
         (candidate.moderationStatus !== "waiting-approval" &&
@@ -337,20 +337,12 @@ export function resolveParticipantAnswerTransaction(
         return false;
       }
 
-      const presence = isRecord(candidate.presence) ? candidate.presence : {};
-      const connections = isRecord(presence.connections)
-        ? presence.connections
-        : {};
-
-      return (
-        participantId === input.participantId ||
-        Object.keys(connections).length > 0
-      );
+      return true;
     })
     .map(([participantId]) => participantId);
-  const allPresentParticipantsAnswered =
-    presentParticipantIds.length > 0 &&
-    presentParticipantIds.every(
+  const allActiveParticipantsAnswered =
+    activeParticipantIds.length > 0 &&
+    activeParticipantIds.every(
       (participantId) =>
         storedParticipantAnswerSchema.safeParse(
           updatedQuestionAnswers[participantId],
@@ -367,7 +359,7 @@ export function resolveParticipantAnswerTransaction(
       ...participantScores,
       [input.participantId]: totalScore,
     },
-    ...(allPresentParticipantsAnswered
+    ...(allActiveParticipantsAnswered
       ? {
           phase: "revealing",
           phaseTiming: null,

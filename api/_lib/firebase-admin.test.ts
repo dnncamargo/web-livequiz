@@ -194,6 +194,13 @@ describe("transação de resposta do participante", () => {
     );
 
     expect(firstDecision.game).toMatchObject({ phase: "question" });
+    expect(firstDecision.game?.answers).toEqual({
+      "pergunta-1": {
+        "participante-1": expect.objectContaining({
+          selectedOptionIds: ["opcao-a"],
+        }),
+      },
+    });
 
     const lastDecision = resolveParticipantAnswerTransaction(
       firstDecision.game,
@@ -211,7 +218,7 @@ describe("transação de resposta do participante", () => {
     });
   });
 
-  it("não espera participantes desconectados para revelar", () => {
+  it("não revela antes do tempo quando um participante ativo está desconectado", () => {
     const gameWithDisconnectedParticipant = {
       ...activeGame,
       participants: {
@@ -234,10 +241,8 @@ describe("transação de resposta do participante", () => {
       },
     );
 
-    expect(decision.game).toMatchObject({
-      phase: "revealing",
-      phaseTiming: null,
-    });
+    expect(decision.game).toMatchObject({ phase: "question" });
+    expect(decision.game).not.toHaveProperty("revealedCorrectOptionIds");
   });
 
   it("mantém a primeira resposta em reenvios e não duplica os pontos", () => {

@@ -34,6 +34,7 @@ export function QuizLibraryPage() {
   const [refreshRevision, setRefreshRevision] = useState(0);
   const library = useQuizLibrary(user, refreshRevision);
   const [actionError, setActionError] = useState("");
+  const [creatingQuiz, setCreatingQuiz] = useState(false);
   const [processingQuizId, setProcessingQuizId] = useState<string | null>(null);
   const activeQuizzes = library.quizzes.filter(
     ({ status }) => status !== "archived",
@@ -56,6 +57,7 @@ export function QuizLibraryPage() {
     try {
       await createQuizDraft(user, input);
       reset();
+      setCreatingQuiz(false);
       setRefreshRevision((revision) => revision + 1);
     } catch (error) {
       console.error("Erro ao criar quiz:", error);
@@ -123,43 +125,74 @@ export function QuizLibraryPage() {
               pronto.
             </p>
           </div>
+          <button
+            type="button"
+            className="primary-button"
+            aria-expanded={creatingQuiz}
+            aria-controls="quiz-creation-form"
+            disabled={creatingQuiz}
+            onClick={() => setCreatingQuiz(true)}
+          >
+            Criar quiz
+          </button>
         </header>
 
-        <form className="quiz-creation-form" onSubmit={submitQuiz}>
-          <div className="form-field">
-            <label htmlFor="quiz-title">Título do quiz</label>
-            <input
-              id="quiz-title"
-              maxLength={QUIZ_TITLE_MAX_LENGTH}
-              placeholder="Ex.: Ciências — 8º ano"
-              aria-invalid={Boolean(errors.title)}
-              {...register("title")}
-            />
-            {errors.title && (
-              <span className="field-error">{errors.title.message}</span>
-            )}
-          </div>
-          <div className="form-field">
-            <label htmlFor="quiz-description">Descrição</label>
-            <textarea
-              id="quiz-description"
-              maxLength={QUIZ_DESCRIPTION_MAX_LENGTH}
-              placeholder="Objetivo, turma ou observações sobre o conteúdo"
-              aria-invalid={Boolean(errors.description)}
-              {...register("description")}
-            />
-            {errors.description && (
-              <span className="field-error">{errors.description.message}</span>
-            )}
-          </div>
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={isSubmitting}
+        {creatingQuiz && (
+          <form
+            id="quiz-creation-form"
+            className="quiz-creation-form"
+            onSubmit={submitQuiz}
           >
-            {isSubmitting ? "Criando quiz..." : "Criar quiz"}
-          </button>
-        </form>
+            <div className="form-field">
+              <label htmlFor="quiz-title">Título do quiz</label>
+              <input
+                id="quiz-title"
+                maxLength={QUIZ_TITLE_MAX_LENGTH}
+                placeholder="Ex.: Ciências — 8º ano"
+                aria-invalid={Boolean(errors.title)}
+                {...register("title")}
+              />
+              {errors.title && (
+                <span className="field-error">{errors.title.message}</span>
+              )}
+            </div>
+            <div className="form-field">
+              <label htmlFor="quiz-description">Descrição</label>
+              <textarea
+                id="quiz-description"
+                maxLength={QUIZ_DESCRIPTION_MAX_LENGTH}
+                placeholder="Objetivo, turma ou observações sobre o conteúdo"
+                aria-invalid={Boolean(errors.description)}
+                {...register("description")}
+              />
+              {errors.description && (
+                <span className="field-error">
+                  {errors.description.message}
+                </span>
+              )}
+            </div>
+            <div className="quiz-creation-actions">
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Criando quiz..." : "Criar rascunho"}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  reset();
+                  setCreatingQuiz(false);
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
 
         {actionError && (
           <div className="test-result test-result-error" role="alert">
@@ -187,7 +220,7 @@ export function QuizLibraryPage() {
           {!library.loading && !library.error && activeQuizzes.length === 0 && (
             <div className="empty-library">
               <strong>Nenhum quiz criado</strong>
-              <p>Crie o primeiro rascunho usando o formulário acima.</p>
+              <p>Use “Criar quiz” para adicionar o primeiro rascunho.</p>
             </div>
           )}
           {activeQuizzes.length > 0 && (
