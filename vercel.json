@@ -5,6 +5,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/apresentacao-legacy",
+      "destination": "/legacy-presentation.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

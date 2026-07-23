@@ -135,6 +135,17 @@ de entrada. Como o Firebase mantém uma identidade por perfil do navegador, use
 uma janela anônima, outro perfil ou outro dispositivo para testar o participante
 sem encerrar a sessão administrativa.
 
+## Apresentação legacy
+
+A rota pública `/apresentacao-legacy?room=CODIGO` usa uma entrada e um bundle
+separados, sem autenticação ou componentes administrativos. Ela lê somente
+`publicGames/{gameId}` e cobre espera, contagem, pergunta, revelação, ranking,
+pódio e encerramento.
+
+O build legacy usa alvo explícito `Chrome >= 81` e é gravado junto ao build
+moderno no diretório `dist`. Para testar diretamente com o servidor local do
+Vite, abra `/legacy-presentation.html?room=CODIGO`.
+
 ## Diagnóstico de conexões
 
 A rota administrativa `/admin/firebase-test` executa verificações independentes de
@@ -216,6 +227,7 @@ npm run lint
 npm run test:run
 npm run test:rules
 npm run build
+npm run build:legacy
 ```
 
 `npm run test:rules` inicia somente o emulador local do Realtime Database com o

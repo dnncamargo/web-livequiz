@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:modern": "tsc -b && vite build",
-    "build": "tsc -b && vite build",
+    "build:legacy": "vite build --config vite.legacy.config.ts",
+    "build": "npm run build:modern && npm run build:legacy",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write .",

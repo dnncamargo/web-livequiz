@@ -1,0 +1,272 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#legacy-root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  color: #ffffff;
+  background: #17102f;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.legacy-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: linear-gradient(145deg, #211345 0%, #10284a 100%);
+}
+
+.legacy-card,
+.legacy-message {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid #4e426d;
+  border-radius: 20px;
+  background: #21183d;
+}
+
+.legacy-message {
+  margin-top: 12vh;
+  text-align: center;
+}
+
+.legacy-room-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 24px;
+  border-bottom: 1px solid #4e426d;
+  padding-bottom: 22px;
+}
+
+.legacy-room-header h1,
+.legacy-room-header p,
+.legacy-phase h2,
+.legacy-phase p {
+  margin: 0;
+}
+
+.legacy-room-header h1 {
+  margin-top: 6px;
+  font-size: 2.4rem;
+}
+
+.legacy-room-header p {
+  margin-top: 8px;
+  color: #d5ccea;
+}
+
+.legacy-eyebrow,
+.legacy-question-progress {
+  color: #ffe25b;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legacy-room-code {
+  display: grid;
+  row-gap: 4px;
+  padding: 12px 18px;
+  border: 1px solid #8f7a3a;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.legacy-room-code span {
+  color: #d5ccea;
+  font-size: 0.8rem;
+}
+
+.legacy-room-code strong {
+  color: #ffe25b;
+  font-size: 1.8rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.legacy-phase {
+  display: grid;
+  align-content: center;
+  row-gap: 22px;
+  min-height: 420px;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.legacy-phase h2 {
+  font-size: 4rem;
+  overflow-wrap: break-word;
+}
+
+.legacy-phase p {
+  color: #d5ccea;
+  font-size: 1.3rem;
+}
+
+.legacy-countdown > strong {
+  color: #ffe25b;
+  font-size: 12rem;
+  line-height: 0.9;
+}
+
+.legacy-question-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 20px;
+  text-align: left;
+}
+
+.legacy-question-header > strong {
+  color: #ffe25b;
+  font-size: 2.4rem;
+}
+
+.legacy-correct-answer {
+  display: grid;
+  row-gap: 10px;
+  padding: 24px;
+  border: 2px solid #55e6a5;
+  border-radius: 18px;
+  background: #173b34;
+}
+
+.legacy-correct-answer span {
+  color: #cbffe7;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legacy-correct-answer strong {
+  font-size: 3rem;
+}
+
+.legacy-participants {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legacy-participants li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #30264e;
+  text-align: left;
+}
+
+.legacy-participants li span {
+  font-size: 2rem;
+}
+
+.legacy-ranking {
+  display: grid;
+  row-gap: 10px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.legacy-ranking li {
+  display: grid;
+  grid-template-columns: 60px 60px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid #4e426d;
+  border-radius: 14px;
+  background: #30264e;
+  text-align: left;
+}
+
+.legacy-ranking li > strong {
+  color: #ffe25b;
+  white-space: nowrap;
+}
+
+.legacy-ranking-avatar {
+  font-size: 2.2rem;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .legacy-page {
+    padding: 12px;
+  }
+
+  .legacy-card,
+  .legacy-message {
+    padding: 18px;
+  }
+
+  .legacy-room-header {
+    grid-template-columns: 1fr;
+    row-gap: 18px;
+    text-align: center;
+  }
+
+  .legacy-room-code {
+    justify-self: center;
+  }
+
+  .legacy-phase {
+    min-height: 360px;
+    padding: 32px 6px;
+  }
+
+  .legacy-phase h2 {
+    font-size: 2.4rem;
+  }
+
+  .legacy-countdown > strong {
+    font-size: 8rem;
+  }
+
+  .legacy-participants {
+    grid-template-columns: 1fr;
+  }
+
+  .legacy-ranking li {
+    grid-template-columns: 42px 46px minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .legacy-ranking li > strong:last-child {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
